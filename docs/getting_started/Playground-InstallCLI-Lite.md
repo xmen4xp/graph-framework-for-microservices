@@ -5,7 +5,7 @@
 
 ### 1. Clone Nexus Repo
 ```
-git clone -b api-gw-tenancy-plugin git@github.com:xmen4xp/graph-framework-for-microservices.git
+git clone git@github.com:intel-sandbox/applications.development.framework.nexus.git
 cd graph-framework-for-microservices/
 export NEXUS_REPO_DIR=${PWD}
 ```
