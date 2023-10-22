@@ -187,6 +187,14 @@ func main() {
 	}
 
 	if conf.EnableNexusRuntime {
+		if conf.Server.HealthProbeAddrress != "" {
+			probeAddr = conf.Server.HealthProbeAddrress
+		}
+
+		if conf.Server.MetricsAddress != "" {
+			metricsAddr = conf.Server.MetricsAddress
+		}
+
 		InitManager(metricsAddr, probeAddr, enableLeaderElection, stopCh, lvl)
 	}
 
@@ -307,22 +315,22 @@ func InitManager(metricsAddr string, probeAddr string, enableLeaderElection bool
 
 	common.SSLEnabled = os.Getenv("SSL_ENABLED")
 	log.Infof("SSL CertsEnabled: %s", common.SSLEnabled)
-
-	log.Infoln("Init xDS server")
-	if jwt, upstreams, headerUpstreams, err := utils.GetEnvoyInitParams(); err != nil {
-		log.Errorf("error getting envoy init params: %s\n", err)
-		// start with a blank envoy config and let the controllers reconcile the envoy state
-		if err = envoy.Init(nil, nil, nil, lvl); err != nil {
-			log.Fatalf("error initializing envoy in main(): %s", err)
-		}
-	} else {
-		if err = envoy.Init(jwt, upstreams, headerUpstreams, lvl); err != nil {
-			panic(err)
-		}
-	}
-	log.Infoln("successfully initialized xDS server")
-
 	if common.IsModeAdmin() {
+
+		log.Infoln("Init xDS server")
+		if jwt, upstreams, headerUpstreams, err := utils.GetEnvoyInitParams(); err != nil {
+			log.Errorf("error getting envoy init params: %s\n", err)
+			// start with a blank envoy config and let the controllers reconcile the envoy state
+			if err = envoy.Init(nil, nil, nil, lvl); err != nil {
+				log.Fatalf("error initializing envoy in main(): %s", err)
+			}
+		} else {
+			if err = envoy.Init(jwt, upstreams, headerUpstreams, lvl); err != nil {
+				panic(err)
+			}
+		}
+		log.Infoln("successfully initialized xDS server")
+
 		//Fetch CSPPermissionName and CSP ServiceID
 		err := common.SetCSPVariables()
 		if err != nil {

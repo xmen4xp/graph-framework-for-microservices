@@ -20,10 +20,12 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	HttpPort string `json:"httpPort" yaml:"httpPort"`
-	Address  string `json:"address" yaml:"address"`
-	CertPath string `json:"certPath" yaml:"certPath"`
-	KeyPath  string `json:"keyPath" yaml:"keyPath"`
+	HttpPort            string `json:"httpPort" yaml:"httpPort"`
+	HealthProbeAddrress string `json:"healthProbeAddrress" yaml:"healthProbeAddrress"`
+	MetricsAddress      string `json:"metricsAddress" yaml:"metricsAddress"`
+	Address             string `json:"address" yaml:"address"`
+	CertPath            string `json:"certPath" yaml:"certPath"`
+	KeyPath             string `json:"keyPath" yaml:"keyPath"`
 }
 
 var Cfg *Config

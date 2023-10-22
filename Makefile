@@ -9,6 +9,7 @@ UNAME_S ?= $(shell uname -s)
 DATAMODEL_NAME ?= $(shell grep groupName ${DATAMODEL_DIR}/nexus.yaml | cut -f 2 -d" " | tr -d '"')
 DATAMODEL_IMAGE_NAME ?= $(shell grep dockerRepo ${DATAMODEL_DIR}/nexus.yaml | cut -f 2 -d" ")
 TAG ?= $(shell cat TAG | awk '{ print $1 }')
+K8S_RUNTIME_PORT = $(shell echo $$(( ${CLUSTER_PORT} + 1 )))
 
 .PHONY: cli.build.darwin
 cli.build.darwin:
@@ -60,7 +61,6 @@ k0s.uninstall:
 	$(realpath .)/nexus-runtime-manifests/k0s/stop_k0s.sh
 
 .PHONY: dm.install_init
-dm.install_init: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k0s/.kubeconfig
 dm.install_init:
 	docker run \
 		--net host \
@@ -112,6 +112,30 @@ endif
 api-gw.stop:
 	docker rm -f nexus-api-gw > /dev/null || true
 
+.PHONY: api-gw.kind.run
+api-gw.kind.run: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/kind/.${CLUSTER_NAME}/kubeconfig
+api-gw.kind.run:
+ifeq (${UNAME_S}, Linux)
+	docker rm -f nexus-api-gw-${CLUSTER_NAME} > /dev/null || true
+	docker run -d \
+		--name=nexus-api-gw-${CLUSTER_NAME} \
+		--rm \
+                --network host \
+		--pull=missing \
+		--mount type=bind,source=${HOST_KUBECONFIG},target=${MOUNTED_KUBECONFIG},readonly \
+		--mount type=bind,source=$(realpath .)/nexus-runtime-manifests/kind/.${CLUSTER_NAME}/api-gw-config.yaml,target=/api-gw-config.yaml,readonly \
+		-e APIGWCONFIG=/api-gw-config.yaml \
+		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
+		-e KUBEAPI_ENDPOINT="127.0.0.1:${CLUSTER_PORT}" \
+		${API_GW_COMPONENT_NAME}:${TAG}
+else
+	APIGWCONFIG=$(realpath .)/${API_GW_COMPONENT_NAME}/deploy/config/api-gw-config.yaml KUBECONFIG=${HOST_KUBECONFIG} $(realpath .)/${API_GW_COMPONENT_NAME}/bin/${API_GW_COMPONENT_NAME}
+endif
+
+.PHONY: api-gw.kind.stop
+api-gw.kind.stop:
+	docker rm -f nexus-api-gw-${CLUSTER_NAME} > /dev/null || true
+
 .PHONY: runtime.build
 runtime.build: compiler.build api.build api-gw.docker
 
@@ -133,11 +157,32 @@ runtime.install.k0s: k0s.install dm.install_init api.install api-gw.run
 	$(info )
 	$(info ====================================================)
 
-.PHONY: runtime.uninstall.k0s
-runtime.uninstall.k0s: k0s.uninstall
+.PHONY: kind.install
+kind.install:
+	$(realpath .)/nexus-runtime-manifests/kind/run_kind.sh -n ${CLUSTER_NAME} -p ${CLUSTER_PORT}
+
+.PHONY: kind.uninstall
+kind.uninstall:
+	$(realpath .)/nexus-runtime-manifests/kind/run_kind.sh -n ${CLUSTER_NAME} -d
+
+.PHONY: runtime.uninstall.kind
+runtime.uninstall.kind: kind.uninstall api-gw.kind.stop
 	$(info )
 	$(info ====================================================)
 	$(info Runtime is now uninstalled)
+	$(info ====================================================)
+
+.PHONY: runtime.install.kind
+runtime.install.kind: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/kind/.${CLUSTER_NAME}/kubeconfig
+runtime.install.kind: kind.install dm.install_init api.install api-gw.kind.run
+	$(info )
+	$(info ====================================================)
+	$(info To access runtime, you can execute kubectl as:)
+	$(info     kubectl -s localhost:${K8S_RUNTIME_PORT} ...)
+	$(info )
+	$(info To access nexus aip gateway using kubeconfig, export:)
+	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
+	$(info )
 	$(info ====================================================)
 
 .PHONY: dm.check-datamodel-dir

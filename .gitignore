@@ -64,5 +64,8 @@ api-gw/bin/*
 # k0s artifacts
 nexus-runtime-manifests/k0s/.kubeconfig
 
+# kind artifacts
+nexus-runtime-manifests/kind/\.*
+
 # playgound app directory
 sock-shop-saas-app/*

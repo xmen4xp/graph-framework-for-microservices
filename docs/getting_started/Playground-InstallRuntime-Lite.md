@@ -24,7 +24,26 @@ make runtime.build
 ```
 
 ### 2. Install Runtime
+#### 2.1 Runtime on K0s K8s cluster
 ```
 make runtime.install.k0s
 ```
+#### 2.2 Runtime on Kind K8s cluster
+```
+CLUSTER_NAME=<name> CLUSTER_PORT=<starting-port> make runtime.install.kind
+```
+where
+
+CLUSTER_NAME --> Custom name for the Nexus runtime
+
+CLUSTER_PORT --> Starting port of the range of ports(assume 100 ports) to be used by Nexus runtime.
+
+Example
+```
+CLUSTER_NAME=foo CLUSTER_PORT=8000 make runtime.install.kind
+CLUSTER_NAME=foo CLUSTER_PORT=9000 make runtime.install.kind
+CLUSTER_NAME=bar CLUSTER_PORT=10000 make runtime.install.kind
+```
+
+
 [[Prev]](Playground-InstallCLI-Lite.md) [[Exit]](../../README.md)  [[Next]](Playground-SockShop-Lite.md)
