@@ -20,6 +20,7 @@ https://user-images.githubusercontent.com/49454273/236900473-216421d5-c9da-456c-
 
 ## [Playground](docs/getting_started/Playground.md)
 ## [Playground Lite](docs/getting_started/Playground-Lite.md)
+## [Developement Setup](docs/getting_started/Setup.md)
 
 <br>
 
