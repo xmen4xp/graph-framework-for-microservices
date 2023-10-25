@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"powerscheduler/pkg/dminit"
 	ev1 "powerschedulermodel/build/apis/edge.intel.com/v1"
+	pmv1 "powerschedulermodel/build/apis/powermgmt.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
 
 	"golang.org/x/sync/errgroup"
@@ -67,26 +68,25 @@ func jobPeriodicReconciler(
 	ctx context.Context,
 	log *logrus.Logger,
 	nexusClient *nexus_client.Clientset,
-	dcfg *nexus_client.DesiredconfigDesiredEdgeConfig) {
+	dcfg *nexus_client.DesiredconfigDesiredEdgeConfig,
+	edgeName string) {
 
-	edcfg, e := dcfg.GetAllEdgesDC(ctx)
+	edc, e := dcfg.GetEdgesDC(ctx, edgeName)
 	if e != nil {
-		log.Error("Error on getting EdgeDC", e)
+		//log.Warn("Error on getting EdgeDC", e)
 		return
 	}
-	for _, edc := range edcfg {
-		jobInfo, e := edc.GetAllJobsInfo(ctx)
-		if e != nil {
-			log.Error("Error getting JobInfo", e)
-			return
-		}
-		for _, job := range jobInfo {
-			go func(j *nexus_client.JobmgmtJobInfo) {
-				if e := updateJobStatus(ctx, j); e != nil {
-					log.Error("Updating job", e)
-				}
-			}(job)
-		}
+	jobInfo, e := edc.GetAllJobsInfo(ctx)
+	if e != nil {
+		log.Error("Error getting JobInfo", e)
+		return
+	}
+	for _, job := range jobInfo {
+		go func(j *nexus_client.JobmgmtJobInfo) {
+			if e := updateJobStatus(ctx, j); e != nil {
+				log.Error("Updating job", e)
+			}
+		}(job)
 	}
 }
 
@@ -104,7 +104,7 @@ func main() {
 	log.SetLevel(logrus.InfoLevel)
 
 	host := "localhost:" + dmAPIGWPort
-	log.Info("Creating client to host at : ", host)
+	log.Infof("Edge %s Creating client to host at : %s", edgeName, host)
 	var e error
 
 	nexusClient, e = nexus_client.NewForConfig(&rest.Config{Host: host})
@@ -117,20 +117,31 @@ func main() {
 		log.Fatal(e)
 	}
 	// add inventory item for self
+
+	newEdge, e := inv.GetEdges(ctx, edgeName)
 	edge := ev1.Edge{}
-	//	pi := edge.Spec.PowerInfoGvk
 	edge.Name = edgeName
-	//edge.Spec.PowerInfoGvk.
-	/*
+	if e != nil {
+		newEdge, e = inv.AddEdges(ctx, &edge)
+		if e != nil {
+			log.Warn("Creating Inv Edge", e)
+		}
+	}
+
+	pi, e := newEdge.GetPowerInfo(ctx)
+	if e != nil {
 		pi := pmv1.PowerInfo{}
 		pi.Spec.TotalPowerAvailable = 100
 		pi.Spec.FreePowerAvailable = 0
-	*/
-	_, e = inv.AddEdges(ctx, &edge)
-	if e != nil {
-		log.Warn("Creating Inv Edge", e)
+		_, e = newEdge.AddPowerInfo(ctx, &pi)
+		if e != nil {
+			log.Warn("Creating Edge PowerInfo", e)
+		}
+	} else {
+		pi.Spec.TotalPowerAvailable = 100
+		pi.Spec.FreePowerAvailable = 0
+		pi.Update(ctx)
 	}
-
 	powerChangeAt := 6
 	powerChangeCnt := 0
 	cnt := 0
@@ -166,7 +177,7 @@ func main() {
 				}
 				// log.Infof("Iteration %d", cnt)
 				cnt += 1
-				jobPeriodicReconciler(ctx, log, nexusClient, dcfg)
+				jobPeriodicReconciler(ctx, log, nexusClient, dcfg, edgeName)
 			case <-gctx.Done():
 				log.Debug("Closing ticker")
 				return gctx.Err()
