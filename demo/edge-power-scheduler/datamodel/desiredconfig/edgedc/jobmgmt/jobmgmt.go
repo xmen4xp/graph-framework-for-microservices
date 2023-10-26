@@ -21,9 +21,9 @@ var JobInfoRestAPISpec = nexus.RestAPISpec{
 // nexus-description: This is for adding jobs to an edge
 type JobInfo struct {
 	nexus.Node
-	JobId       uint64
-	PowerNeeded uint32    // amount of power needed Unit : watt-seconds.
-	State       JobStatus `nexus:"status"`
+	RequestorJob string
+	PowerNeeded  uint32    // amount of power needed Unit : watt-seconds.
+	State        JobStatus `nexus:"status"`
 }
 
 type JobStatus struct {

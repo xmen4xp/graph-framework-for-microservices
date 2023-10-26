@@ -22,3 +22,15 @@ dm.install:
 .PHONEY: build
 build: #bin/eps-edge-agent
 	go build -o bin ./...
+
+
+.PHONEY: k8s-clean
+k8s-clean:
+	 kubectl delete configs.config.intel.com --all
+	 kubectl delete desirededgeconfigs.desiredconfig.intel.com --all
+	 kubectl delete edges.edge.intel.com --all
+	 kubectl delete inventories.inventory.intel.com --all
+	 kubectl delete jobs.jobscheduler.intel.com --all
+	 kubectl delete powerinfos.powermgmt.intel.com --all
+	 kubectl delete powerschedulers.root.intel.com --all
+	 kubectl delete jobinfos.jobmgmt.intel.com --all

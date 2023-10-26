@@ -1,0 +1,113 @@
+package jobcreator
+
+// periodically
+// based on a policy create jobs and queue them into the pipeline
+//
+// periodically poll progress of completion of jobs and report
+//
+// periodically remove jobs that are older than 1hr from the system
+
+// work on the config -> Jobs
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	jsv1 "powerschedulermodel/build/apis/jobscheduler.intel.com/v1"
+	nexus_client "powerschedulermodel/build/nexus-client"
+
+	"github.com/sirupsen/logrus"
+
+	"time"
+
+	"golang.org/x/sync/errgroup"
+)
+
+type JobCreator struct {
+	MaxPendingJobs uint32
+	MaxJobPower    uint32
+	MinJobPower    uint32
+	lastJobId      uint64
+	LimitJobCnt    uint32
+	cfg            *nexus_client.ConfigConfig
+	log            *logrus.Entry
+}
+
+func New(cfg *nexus_client.ConfigConfig, maxPendingJobs uint32,
+	maxJobPowerRange uint32, minJobPowerRange uint32, limitJobs uint32) *JobCreator {
+	log := logrus.WithFields(logrus.Fields{
+		"module": "jobcreator",
+	})
+	jc := &JobCreator{maxPendingJobs, maxJobPowerRange, minJobPowerRange, 1, limitJobs, cfg, log}
+	return jc
+}
+
+func (jc *JobCreator) createAndAddJob(ctx context.Context) error {
+	j := &jsv1.Job{}
+	j.Name = fmt.Sprintf("job-%d", jc.lastJobId)
+	j.Spec.JobId = jc.lastJobId
+	j.Spec.PowerNeeded = jc.MinJobPower + uint32(rand.Intn(int(jc.MaxJobPower-jc.MinJobPower)))
+	j.Spec.CreationTime = time.Now().Unix()
+	jc.lastJobId++
+	_, e := jc.cfg.AddJobs(ctx, j)
+	return e
+}
+func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
+	allJobs, e := jc.cfg.GetAllJobs(ctx)
+	if e != nil {
+		return e
+	}
+	pendingJobCnt := 0
+	for _, job := range allJobs {
+		if job.Status.State.PercentCompleted == 100 {
+			elapsedTime := time.Now().Unix() - job.Status.State.EndTime
+			// delete jobs that compleated an hour back.
+			if elapsedTime > 60*60 {
+				if e = jc.cfg.DeleteJobs(ctx, job.DisplayName()); e != nil {
+					return e
+				}
+			}
+		} else {
+			pendingJobCnt += 1
+		}
+	}
+	if pendingJobCnt < int(jc.MaxPendingJobs) && (jc.LimitJobCnt == 0 || uint64(jc.LimitJobCnt) > jc.lastJobId) {
+		if e = jc.createAndAddJob(ctx); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+func (jc *JobCreator) jobsCB(cbType string, obj *nexus_client.JobschedulerJob) {
+	var execInfo string = ""
+	e := obj.Status.State.Execution
+	if e != nil {
+		for n, v := range e {
+			execInfo += fmt.Sprintf("[%s: %d, %d%%]", n, v.PowerRequested, v.Progress)
+		}
+	}
+	jc.log.Infof("Config/Job CBFN: Job %s [%s] PowerReq:%d Completion:%d Distribution:%s", obj.DisplayName(),
+		cbType, obj.Spec.PowerNeeded, obj.Status.State.PercentCompleted, execInfo)
+}
+
+func (jc *JobCreator) Start(nexusClient *nexus_client.Clientset, g *errgroup.Group, gctx context.Context) {
+	nexusClient.RootPowerScheduler().Config().Jobs("*").RegisterAddCallback(
+		func(obj *nexus_client.JobschedulerJob) {
+			jc.jobsCB("Add", obj)
+		})
+	nexusClient.RootPowerScheduler().Config().Jobs("*").RegisterUpdateCallback(
+		func(oldObj *nexus_client.JobschedulerJob, newObj *nexus_client.JobschedulerJob) {
+			jc.jobsCB("Upd", newObj)
+		})
+	g.Go(func() error {
+		tickerJob := time.NewTicker(10 * time.Second)
+		for {
+			select {
+			case <-tickerJob.C:
+				jc.checkAndCreateJobs(gctx)
+			case <-gctx.Done():
+				return gctx.Err()
+			}
+		}
+	})
+}
