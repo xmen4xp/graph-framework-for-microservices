@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"powerscheduler/pkg/dminit"
 	"powerscheduler/pkg/jobcreator"
-	"powerscheduler/pkg/jobscheduler"
 	nexus_client "powerschedulermodel/build/nexus-client"
 	"strconv"
 
@@ -39,7 +38,7 @@ func main() {
 	log.SetLevel(logrus.InfoLevel)
 
 	host := "localhost:" + dmAPIGWPort
-	log.Infof("Power Cotroller Creating Client to host at : %s", host)
+	log.Infof("Job Generator Creating Client to host at : %s", host)
 
 	nexusClient, e := nexus_client.NewForConfig(&rest.Config{Host: host})
 	if e != nil {
@@ -56,7 +55,6 @@ func main() {
 	g, gctx := errgroup.WithContext(ctx)
 
 	jobCreator := jobcreator.New(nexusClient, 10, 1000, 100, uint32(maxJobs))
-	jobScheduler := jobscheduler.New(nexusClient)
 
 	// look for signal
 	g.Go(func() error {
@@ -73,7 +71,6 @@ func main() {
 		return nil
 	})
 	jobCreator.Start(nexusClient, g, gctx)
-	jobScheduler.Start(nexusClient, g, gctx)
 	err := g.Wait()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -83,5 +80,5 @@ func main() {
 		}
 	}
 
-	fmt.Println("exiting controller.")
+	fmt.Println("exiting job generator.")
 }

@@ -44,6 +44,10 @@ run-edge-10: ./bin/eps-edge-agent
 run-edge-11: ./bin/eps-edge-agent
 	EDGE_NAME="edge-11" ./bin/eps-edge-agent
 
-.PHONEY: run-controller
-run-controller: ./bin/eps-controller
-	MAXJOBS=2 ./bin/eps-controller
+.PHONEY: run-scheduler
+run-scheduler: ./bin/eps-scheduler
+	./bin/eps-scheduler
+
+.PHONEY: run-generator
+run-generator: ./bin/eps-job-requester
+	MAXJOBS=2 ./bin/eps-job-requester	
