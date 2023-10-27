@@ -46,7 +46,7 @@ func main() {
 		log.Fatal("nexusClient", e)
 	}
 	ctx := context.Background()
-	_, cfg, dcfg, inv, e := dminit.Init(ctx, nexusClient)
+	e = dminit.Init(ctx, nexusClient)
 	if e != nil {
 		log.Fatal(e)
 	}
@@ -55,8 +55,8 @@ func main() {
 	ctx, done := context.WithCancel(context.Background())
 	g, gctx := errgroup.WithContext(ctx)
 
-	jobCreator := jobcreator.New(cfg, 10, 1000, 100, uint32(maxJobs))
-	jobScheduler := jobscheduler.New(cfg, inv, dcfg)
+	jobCreator := jobcreator.New(nexusClient, 10, 1000, 100, uint32(maxJobs))
+	jobScheduler := jobscheduler.New(nexusClient)
 
 	// look for signal
 	g.Go(func() error {
@@ -83,5 +83,5 @@ func main() {
 		}
 	}
 
-	fmt.Println("exiting")
+	fmt.Println("exiting controller.")
 }

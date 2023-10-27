@@ -29,31 +29,36 @@ type JobCreator struct {
 	MinJobPower    uint32
 	lastJobId      uint64
 	LimitJobCnt    uint32
-	cfg            *nexus_client.ConfigConfig
+	nexusClient    *nexus_client.Clientset
 	log            *logrus.Entry
 }
 
-func New(cfg *nexus_client.ConfigConfig, maxPendingJobs uint32,
+func New(ncli *nexus_client.Clientset, maxPendingJobs uint32,
 	maxJobPowerRange uint32, minJobPowerRange uint32, limitJobs uint32) *JobCreator {
 	log := logrus.WithFields(logrus.Fields{
 		"module": "jobcreator",
 	})
-	jc := &JobCreator{maxPendingJobs, maxJobPowerRange, minJobPowerRange, 1, limitJobs, cfg, log}
+	jc := &JobCreator{maxPendingJobs, maxJobPowerRange, minJobPowerRange, 1, limitJobs, ncli, log}
 	return jc
 }
 
-func (jc *JobCreator) createAndAddJob(ctx context.Context) error {
+func (jc *JobCreator) createAndAddJob(ctx context.Context, cfg *nexus_client.ConfigConfig) error {
 	j := &jsv1.Job{}
 	j.Name = fmt.Sprintf("job-%d", jc.lastJobId)
 	j.Spec.JobId = jc.lastJobId
 	j.Spec.PowerNeeded = jc.MinJobPower + uint32(rand.Intn(int(jc.MaxJobPower-jc.MinJobPower)))
 	j.Spec.CreationTime = time.Now().Unix()
 	jc.lastJobId++
-	_, e := jc.cfg.AddJobs(ctx, j)
+	jc.log.Infof("Creating Job %s for requested power %d", j.Name, j.Spec.PowerNeeded)
+	_, e := cfg.AddJobs(ctx, j)
 	return e
 }
 func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
-	allJobs, e := jc.cfg.GetAllJobs(ctx)
+	cfg, e := jc.nexusClient.RootPowerScheduler().GetConfig(ctx)
+	if e != nil {
+		return e
+	}
+	allJobs, e := cfg.GetAllJobs(ctx)
 	if e != nil {
 		return e
 	}
@@ -63,7 +68,7 @@ func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
 			elapsedTime := time.Now().Unix() - job.Status.State.EndTime
 			// delete jobs that compleated an hour back.
 			if elapsedTime > 60*60 {
-				if e = jc.cfg.DeleteJobs(ctx, job.DisplayName()); e != nil {
+				if e = cfg.DeleteJobs(ctx, job.DisplayName()); e != nil {
 					return e
 				}
 			}
@@ -72,7 +77,7 @@ func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
 		}
 	}
 	if pendingJobCnt < int(jc.MaxPendingJobs) && (jc.LimitJobCnt == 0 || uint64(jc.LimitJobCnt) > jc.lastJobId) {
-		if e = jc.createAndAddJob(ctx); e != nil {
+		if e = jc.createAndAddJob(ctx, cfg); e != nil {
 			return e
 		}
 	}
@@ -81,10 +86,8 @@ func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
 func (jc *JobCreator) jobsCB(cbType string, obj *nexus_client.JobschedulerJob) {
 	var execInfo string = ""
 	e := obj.Status.State.Execution
-	if e != nil {
-		for n, v := range e {
-			execInfo += fmt.Sprintf("[%s: %d, %d%%]", n, v.PowerRequested, v.Progress)
-		}
+	for n, v := range e {
+		execInfo += fmt.Sprintf("[%s: %d, %d%%]", n, v.PowerRequested, v.Progress)
 	}
 	jc.log.Infof("Config/Job CBFN: Job %s [%s] PowerReq:%d Completion:%d Distribution:%s", obj.DisplayName(),
 		cbType, obj.Spec.PowerNeeded, obj.Status.State.PercentCompleted, execInfo)
@@ -104,7 +107,10 @@ func (jc *JobCreator) Start(nexusClient *nexus_client.Clientset, g *errgroup.Gro
 		for {
 			select {
 			case <-tickerJob.C:
-				jc.checkAndCreateJobs(gctx)
+				e := jc.checkAndCreateJobs(gctx)
+				if e != nil {
+					jc.log.Error("check and create jobs ", e)
+				}
 			case <-gctx.Done():
 				return gctx.Err()
 			}

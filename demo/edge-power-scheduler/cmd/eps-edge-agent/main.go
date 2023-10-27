@@ -112,24 +112,26 @@ func main() {
 		log.Fatal("nexusClient", e)
 	}
 	ctx := context.Background()
-	_, _, dcfg, inv, e := dminit.Init(ctx, nexusClient)
+	e = dminit.Init(ctx, nexusClient)
 	if e != nil {
 		log.Fatal(e)
 	}
 	// add inventory item for self
-
+	inv := nexusClient.RootPowerScheduler().Inventory()
 	newEdge, e := inv.GetEdges(ctx, edgeName)
 	edge := ev1.Edge{}
 	edge.Name = edgeName
-	if e != nil {
+	if nexus_client.IsNotFound(e) {
 		newEdge, e = inv.AddEdges(ctx, &edge)
 		if e != nil {
-			log.Warn("Creating Inv Edge", e)
+			log.Warn("Creating Inv Edge ", e)
 		}
+	} else if e != nil {
+		log.Error("when getting Edge ", e)
 	}
 
 	pi, e := newEdge.GetPowerInfo(ctx)
-	if e != nil {
+	if nexus_client.IsChildNotFound(e) {
 		pi := pmv1.PowerInfo{}
 		pi.Spec.TotalPowerAvailable = 100
 		pi.Spec.FreePowerAvailable = 0
@@ -137,6 +139,8 @@ func main() {
 		if e != nil {
 			log.Warn("Creating Edge PowerInfo", e)
 		}
+	} else if e != nil {
+		log.Error("when getting power info ", e)
 	} else {
 		pi.Spec.TotalPowerAvailable = 100
 		pi.Spec.FreePowerAvailable = 0
@@ -148,7 +152,7 @@ func main() {
 
 	ctx, done := context.WithCancel(context.Background())
 	g, gctx := errgroup.WithContext(ctx)
-
+	eagent := edgeagent.New(edgeName, nexusClient)
 	// look for signal
 	g.Go(func() error {
 		sigs := make(chan os.Signal, 1)
@@ -163,6 +167,8 @@ func main() {
 		}
 		return nil
 	})
+	// dcf2 := nexusClient.RootPowerScheduler().DesiredEdgeConfig()
+	//GetEdgesDC("kjdkj")
 
 	// timer task
 	g.Go(func() error {

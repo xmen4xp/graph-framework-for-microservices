@@ -29,8 +29,21 @@ k8s-clean:
 	 kubectl delete configs.config.intel.com --all
 	 kubectl delete desirededgeconfigs.desiredconfig.intel.com --all
 	 kubectl delete edges.edge.intel.com --all
+	 kubectl delete edgedcs.edgedc.intel.com --all
 	 kubectl delete inventories.inventory.intel.com --all
 	 kubectl delete jobs.jobscheduler.intel.com --all
 	 kubectl delete powerinfos.powermgmt.intel.com --all
 	 kubectl delete powerschedulers.root.intel.com --all
 	 kubectl delete jobinfos.jobmgmt.intel.com --all
+
+.PHONEY: run-edge-10
+run-edge-10: ./bin/eps-edge-agent
+	EDGE_NAME="edge-10" ./bin/eps-edge-agent
+
+.PHONEY: run-edge-11
+run-edge-11: ./bin/eps-edge-agent
+	EDGE_NAME="edge-11" ./bin/eps-edge-agent
+
+.PHONEY: run-controller
+run-controller: ./bin/eps-controller
+	MAXJOBS=2 ./bin/eps-controller

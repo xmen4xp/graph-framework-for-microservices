@@ -12,11 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Init(ctx context.Context, nexusClient *nexus_client.Clientset) (
-	*nexus_client.RootPowerScheduler,
-	*nexus_client.ConfigConfig,
-	*nexus_client.DesiredconfigDesiredEdgeConfig,
-	*nexus_client.InventoryInventory, error) {
+func Init(ctx context.Context, nexusClient *nexus_client.Clientset) error {
 	// A common pattern is to re-use fields between logging statements by re-using
 	// the logrus.Entry returned from WithFields()
 	log := logrus.WithFields(logrus.Fields{
@@ -25,36 +21,41 @@ func Init(ctx context.Context, nexusClient *nexus_client.Clientset) (
 
 	// create some nodes that are needed for the system to function.
 	rps, e := nexusClient.GetRootPowerScheduler(ctx)
-	if e != nil {
-		log.Info("Get on RootPowerScheduler node resulted in error:", e)
-		log.Info("Will create a new RootPowerScheduler node")
+	if nexus_client.IsNotFound(e) {
+		log.Info("Node not found. Will create a new RootPowerScheduler node")
 		if rps, e = nexusClient.AddRootPowerScheduler(ctx, &rootv1.PowerScheduler{}); e != nil {
-			return nil, nil, nil, nil, errors.WithMessage(e, "When creating RootPowerScheduler Node")
+			return errors.WithMessage(e, "When creating RootPowerScheduler Node")
 		}
+	} else if e != nil {
+		log.Error("Get on RootPowerScheduler node resulted in error:", e)
 	}
-	cfg, e := rps.GetConfig(ctx)
-	if e != nil {
-		log.Info("Get on Config node resulted in error:", e)
-		log.Info("Will create a new Config node")
-		if cfg, e = rps.AddConfig(ctx, &cfgv1.Config{}); e != nil {
-			return nil, nil, nil, nil, errors.WithMessage(e, "When creating Config Node")
+	_, e = rps.GetConfig(ctx)
+	if nexus_client.IsChildNotFound(e) {
+		log.Info("Node not found. Will create a new Config node")
+		if _, e = rps.AddConfig(ctx, &cfgv1.Config{}); e != nil {
+			return errors.WithMessage(e, "When creating Config Node")
 		}
+	} else if e != nil {
+		log.Error("Get on Config node resulted in error:", e)
 	}
-	dcfg, e := rps.GetDesiredEdgeConfig(ctx)
-	if e != nil {
-		log.Info("Get on DesiredConfig node resulted in error:", e)
-		log.Info("Will create a new DesiredConfig node")
-		if dcfg, e = rps.AddDesiredEdgeConfig(ctx, &dcfgv1.DesiredEdgeConfig{}); e != nil {
-			return nil, nil, nil, nil, errors.WithMessage(e, "When creating DesiredEdgeConfig Node")
+	_, e = rps.GetDesiredEdgeConfig(ctx)
+	if nexus_client.IsChildNotFound(e) {
+		log.Info("Node not found. Will create a new DesiredConfig node")
+		if _, e = rps.AddDesiredEdgeConfig(ctx, &dcfgv1.DesiredEdgeConfig{}); e != nil {
+			return errors.WithMessage(e, "When creating DesiredEdgeConfig Node")
 		}
+	} else if e != nil {
+		log.Error("Get on DesiredConfig node resulted in error:", e)
 	}
-	inv, e := rps.GetInventory(ctx)
-	if e != nil {
-		log.Info("Get on Inventory node resulted in error:", e)
-		log.Info("Will create a new Inventory node")
-		if inv, e = rps.AddInventory(ctx, &invv1.Inventory{}); e != nil {
-			return nil, nil, nil, nil, errors.WithMessage(e, "When creating Inventory Node")
+	_, e = rps.GetInventory(ctx)
+	if nexus_client.IsChildNotFound(e) {
+		log.Info("Node not found. Will create a new Inventory node")
+		if _, e = rps.AddInventory(ctx, &invv1.Inventory{}); e != nil {
+			return errors.WithMessage(e, "When creating Inventory Node")
 		}
+	} else if e != nil {
+		log.Error("Get on Inventory node resulted in error:", e)
 	}
-	return rps, cfg, dcfg, inv, nil
+
+	return nil
 }
