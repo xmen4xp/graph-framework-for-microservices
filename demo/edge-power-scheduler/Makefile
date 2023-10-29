@@ -35,6 +35,7 @@ k8s-clean:
 	 kubectl delete powerinfos.powermgmt.intel.com --all
 	 kubectl delete powerschedulers.root.intel.com --all
 	 kubectl delete jobinfos.jobmgmt.intel.com --all
+	 kubectl delete schedulerconfigs.jobscheduler.intel.com --all	 
 
 .PHONEY: run-edge-10
 run-edge-10: ./bin/eps-edge-agent

@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"powerscheduler/pkg/dminit"
 	ev1 "powerschedulermodel/build/apis/edge.intel.com/v1"
-	pmv1 "powerschedulermodel/build/apis/powermgmt.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
 
 	"golang.org/x/sync/errgroup"
@@ -102,6 +101,10 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()
 	log.SetLevel(logrus.InfoLevel)
+	customFormatter := new(logrus.TextFormatter)
+	customFormatter.TimestampFormat = "15:04:05.000"
+	logrus.SetFormatter(customFormatter)
+	customFormatter.FullTimestamp = true
 
 	host := "localhost:" + dmAPIGWPort
 	log.Infof("Edge %s Creating client to host at : %s", edgeName, host)
@@ -130,21 +133,10 @@ func main() {
 		log.Error("when getting Edge ", e)
 	}
 
-	pi, e := newEdge.GetPowerInfo(ctx)
-	if nexus_client.IsChildNotFound(e) {
-		pi := pmv1.PowerInfo{}
-		pi.Spec.TotalPowerAvailable = 100
-		pi.Spec.FreePowerAvailable = 0
-		_, e = newEdge.AddPowerInfo(ctx, &pi)
-		if e != nil {
-			log.Warn("Creating Edge PowerInfo", e)
-		}
-	} else if e != nil {
-		log.Error("when getting power info ", e)
-	} else {
-		pi.Spec.TotalPowerAvailable = 100
-		pi.Spec.FreePowerAvailable = 0
-		pi.Update(ctx)
+	newEdge.Status.State.PowerInfo.TotalPowerAvailable = 100
+	newEdge.Status.State.PowerInfo.FreePowerAvailable = 0
+	if e = newEdge.SetState(ctx, &newEdge.Status.State); e != nil {
+		log.Error("When setting state of the Edge", e)
 	}
 	powerChangeAt := 6
 	powerChangeCnt := 0

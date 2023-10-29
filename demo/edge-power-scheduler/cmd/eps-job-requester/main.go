@@ -36,6 +36,10 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()
 	log.SetLevel(logrus.InfoLevel)
+	customFormatter := new(logrus.TextFormatter)
+	customFormatter.TimestampFormat = "15:04:05.000"
+	logrus.SetFormatter(customFormatter)
+	customFormatter.FullTimestamp = true
 
 	host := "localhost:" + dmAPIGWPort
 	log.Infof("Job Generator Creating Client to host at : %s", host)
@@ -54,7 +58,7 @@ func main() {
 	ctx, done := context.WithCancel(context.Background())
 	g, gctx := errgroup.WithContext(ctx)
 
-	jobCreator := jobcreator.New(nexusClient, 10, 1000, 100, uint32(maxJobs))
+	jobCreator := jobcreator.New(nexusClient, 10, 800, 100, uint32(maxJobs))
 
 	// look for signal
 	g.Go(func() error {

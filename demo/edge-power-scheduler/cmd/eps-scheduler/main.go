@@ -31,6 +31,12 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()
 	log.SetLevel(logrus.InfoLevel)
+	customFormatter := new(logrus.TextFormatter)
+	customFormatter.TimestampFormat = "15:04:05.000"
+	logrus.SetFormatter(customFormatter)
+	//logrus.Info("Hello Walrus before FullTimestamp=true")
+	customFormatter.FullTimestamp = true
+	//logrus.Info("Hello Walrus after FullTimestamp=true")
 
 	host := "localhost:" + dmAPIGWPort
 	log.Infof("Power Scheduler Creating Client to host at : %s", host)

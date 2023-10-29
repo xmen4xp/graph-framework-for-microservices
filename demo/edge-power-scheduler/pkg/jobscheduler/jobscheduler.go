@@ -3,12 +3,15 @@ package jobscheduler
 import (
 	"context"
 	"fmt"
-	nexus_client "powerschedulermodel/build/nexus-client"
-	"time"
-
+	"log"
 	edcv1 "powerschedulermodel/build/apis/edgedc.intel.com/v1"
 	jiv1 "powerschedulermodel/build/apis/jobmgmt.intel.com/v1"
 	jsv1 "powerschedulermodel/build/apis/jobscheduler.intel.com/v1"
+	nexus_client "powerschedulermodel/build/nexus-client"
+	"sync"
+	"time"
+
+	"k8s.io/utils/keymutex"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -20,16 +23,25 @@ import (
 // periodically collect stats and update the jobs
 
 type JobScheduler struct {
-	nexusClient *nexus_client.Clientset
-	jobSplits   uint32
-	log         *logrus.Entry
+	nexusClient    *nexus_client.Clientset
+	jobSplits      uint32
+	statusMutex    sync.Mutex
+	reconcileMutex sync.Mutex
+	log            *logrus.Entry
+	edgeLock       keymutex.KeyMutex
 }
 
 func New(ncli *nexus_client.Clientset) *JobScheduler {
 	log := logrus.WithFields(logrus.Fields{
 		"module": "jobscheduler",
 	})
-	return &JobScheduler{ncli, 4, log}
+	js := &JobScheduler{}
+	js.nexusClient = ncli
+	js.jobSplits = 4
+	js.log = log
+	js.edgeLock = keymutex.NewHashed(0)
+	js.statusMutex = sync.Mutex{}
+	return js
 }
 
 // check if an edge is free
@@ -158,6 +170,9 @@ func (js *JobScheduler) reconcileRequest(ctx context.Context) {
 	// find the next candidate and schedule the runner tasks
 	// update the job with the scheduling info.
 	// get list of edges
+	js.reconcileMutex.Lock()
+	defer js.reconcileMutex.Unlock()
+
 	inv, e := js.nexusClient.RootPowerScheduler().GetInventory(ctx)
 	if e != nil {
 		js.log.Error(e)
@@ -179,6 +194,7 @@ func (js *JobScheduler) reconcileRequest(ctx context.Context) {
 			freeEdges = append(freeEdges, idx)
 		}
 	}
+	js.log.Infof("Reconciler free Edges:%d", len(freeEdges))
 	// find out how many are idling
 	// if all busy then nonthing to do return
 	if len(freeEdges) == 0 {
@@ -192,6 +208,7 @@ func (js *JobScheduler) reconcileRequest(ctx context.Context) {
 		return
 	}
 	jobFound, jobIdx := js.nextInLineJob(jlist)
+	js.log.Infof("Reconciler job found:%t.%d", jobFound, jobIdx)
 	if !jobFound {
 		return // nothing to do
 	}
@@ -200,7 +217,7 @@ func (js *JobScheduler) reconcileRequest(ctx context.Context) {
 
 	// do another round of reconcile so as to capture
 	// partially filled requests.
-	js.reconcileRequest(ctx)
+	go func() { js.reconcileRequest(ctx) }()
 }
 
 // update comming form execution to be fed back to the origin job status
@@ -211,8 +228,15 @@ func (js *JobScheduler) executorUpdate(ctx context.Context, oldObj *nexus_client
 	// and recompute total progress
 	reqJobName := obj.Spec.RequestorJob
 	jobName := obj.DisplayName()
-
-	js.log.Infof("Got executor Update for job %s Requestro %s %+v", jobName, reqJobName, obj.Status.State)
+	// get edge name
+	edgedc, e := obj.GetParent(ctx)
+	if e != nil {
+		log.Fatal(e)
+	}
+	edgeName := edgedc.DisplayName()
+	js.edgeLock.LockKey(edgeName)
+	defer js.edgeLock.UnlockKey(edgeName)
+	js.log.Infof("Got executor Update for job %s Requestro %s Power %d Status %+v", jobName, reqJobName, obj.Spec.PowerNeeded, obj.Status.State)
 	cfg := js.nexusClient.RootPowerScheduler().Config()
 	reqJob, e := cfg.GetJobs(ctx, reqJobName)
 	if e != nil {
@@ -222,6 +246,7 @@ func (js *JobScheduler) executorUpdate(ctx context.Context, oldObj *nexus_client
 	if !ok {
 		js.log.Errorf("Invalid  Job or JobNot found %s", jobName)
 	}
+	einfo.PowerRequested = obj.Spec.PowerNeeded
 	einfo.Progress = obj.Status.State.Progress
 	einfo.StartTime = obj.Status.State.StartTime
 	einfo.EndTime = obj.Status.State.EndTime
@@ -236,12 +261,87 @@ func (js *JobScheduler) executorUpdate(ctx context.Context, oldObj *nexus_client
 	} else {
 		// js.log.Infof("Updating Job %s to State %+v", reqJobName, reqJob.Status.State)
 	}
+
+	// Update Stats when job completes
 	if oldObj.Status.State.Progress != 100 && obj.Status.State.Progress == 100 {
-		js.reconcileRequest(ctx)
+		go func() { js.reconcileRequest(ctx) }()
+		js.statusMutex.Lock()
+		defer js.statusMutex.Unlock()
+		jc := js.getJSStatus(ctx)
+		jc.Status.State.TotalJobsExecuted.TotalJobsProcessed++
+		jc.Status.State.TotalJobsExecuted.TotalPowerProcessed += obj.Spec.PowerNeeded
+		if jc.Status.State.TotalJobsExecutedPerEdge == nil {
+			jc.Status.State.TotalJobsExecutedPerEdge = make(map[string]jsv1.ExectuedJobStats)
+		}
+		ej, ok := jc.Status.State.TotalJobsExecutedPerEdge[edgeName]
+		if !ok {
+			ej = jsv1.ExectuedJobStats{TotalJobsProcessed: 0, TotalPowerProcessed: 0}
+			jc.Status.State.TotalJobsExecutedPerEdge[edgeName] = ej
+		}
+		ej.TotalJobsProcessed++
+		ej.TotalPowerProcessed += obj.Spec.PowerNeeded
+		jc.Status.State.TotalJobsExecutedPerEdge[edgeName] = ej
+		// delete(jc.Status.State.CurrentJobsExecuting, edgeName)
+		js.setJSStatus(ctx, jc)
+		// delete the obj
+		e = edgedc.DeleteJobsInfo(ctx, obj.DisplayName())
+		if e != nil {
+			js.log.Error("Error when cleaning up desired config jobInfo ", e)
+		}
+	}
+	// update stats when job starts or updates
+	if obj.Status.State.Progress < 100 {
+		js.statusMutex.Lock()
+		defer js.statusMutex.Unlock()
+		jc := js.getJSStatus(ctx)
+		if jc.Status.State.CurrentJobsExecuting == nil {
+			jc.Status.State.CurrentJobsExecuting = make(map[string]jsv1.ExecutingJobStatus)
+		}
+		ej, ok := jc.Status.State.CurrentJobsExecuting[edgeName]
+		if !ok {
+			ej = jsv1.ExecutingJobStatus{}
+			jc.Status.State.CurrentJobsExecuting[edgeName] = ej
+		}
+		ej.PowerRequested = obj.Spec.PowerNeeded
+		ej.StartTime = obj.Status.State.StartTime
+		ej.EndTime = obj.Status.State.EndTime
+		ej.Progress = obj.Status.State.Progress
+		jc.Status.State.CurrentJobsExecuting[edgeName] = ej
+		js.setJSStatus(ctx, jc)
+	}
+}
+
+func (js *JobScheduler) getJSStatus(ctx context.Context) *nexus_client.JobschedulerSchedulerConfig {
+	jscfg, e := js.nexusClient.RootPowerScheduler().Config().GetScheduler(ctx)
+	if nexus_client.IsNotFound(e) {
+		js.log.Info("Creating the Scheduler ...", e)
+		itm := jsv1.SchedulerConfig{}
+		itm.Status.State.CurrentJobsExecuting = make(map[string]jsv1.ExecutingJobStatus)
+		itm.Status.State.TotalJobsExecutedPerEdge = make(map[string]jsv1.ExectuedJobStats)
+		jscfg, e = js.nexusClient.RootPowerScheduler().Config().AddScheduler(ctx, &itm)
+	}
+	if e != nil {
+		js.log.Fatal("when gettting Scheduler status  ", e)
+	}
+	if jscfg.Status.State.CurrentJobsExecuting == nil {
+		jscfg.Status.State.CurrentJobsExecuting = make(map[string]jsv1.ExecutingJobStatus)
+	}
+	if jscfg.Status.State.TotalJobsExecutedPerEdge == nil {
+		jscfg.Status.State.TotalJobsExecutedPerEdge = make(map[string]jsv1.ExectuedJobStats)
+	}
+	return jscfg
+}
+func (js *JobScheduler) setJSStatus(ctx context.Context, jscfg *nexus_client.JobschedulerSchedulerConfig) {
+	if e := jscfg.SetState(ctx, &jscfg.Status.State); e != nil {
+		js.log.Fatal("when setting Scheduler status ", e)
 	}
 }
 
 func (js *JobScheduler) Start(nexusClient *nexus_client.Clientset, g *errgroup.Group, gctx context.Context) {
+	nexusClient.RootPowerScheduler().Config().Jobs("*").Subscribe()
+	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").Subscribe()
+	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").JobsInfo("*").Subscribe()
+
 	nexusClient.RootPowerScheduler().Config().Jobs("*").RegisterAddCallback(
 		func(obj *nexus_client.JobschedulerJob) {
 			js.reconcileRequest(gctx)

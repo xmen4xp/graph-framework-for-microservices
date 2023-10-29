@@ -1,8 +1,6 @@
 package edge
 
 import (
-	"powerschedulermodel/inventory/edge/powermgmt"
-
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
@@ -24,5 +22,19 @@ var EdgeRestAPISpec = nexus.RestAPISpec{
 // in the control plane.
 type Edge struct {
 	nexus.Node
-	PowerInfo powermgmt.PowerInfo `nexus:"child"`
+	State EdgeState `nexus:"status"`
+}
+
+type EdgePowerInfo struct {
+	TotalPowerAvailable uint32
+	FreePowerAvailable  uint32
+}
+
+type EdgeState struct {
+	PowerInfo                  EdgePowerInfo
+	CurrentJob                 string
+	CurrentJobPercentCompleted uint32
+	CurrentJobPowerRequested   uint32
+	TotalJobsProcessed         uint32
+	TotalPowerServed           uint32
 }

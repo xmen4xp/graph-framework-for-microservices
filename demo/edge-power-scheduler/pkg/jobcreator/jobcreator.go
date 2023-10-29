@@ -38,18 +38,23 @@ func New(ncli *nexus_client.Clientset, maxPendingJobs uint32,
 	log := logrus.WithFields(logrus.Fields{
 		"module": "jobcreator",
 	})
+	customFormatter := new(logrus.TextFormatter)
+	customFormatter.TimestampFormat = "15:04:05"
+	logrus.SetFormatter(customFormatter)
+	customFormatter.FullTimestamp = true
+
 	jc := &JobCreator{maxPendingJobs, maxJobPowerRange, minJobPowerRange, 1, limitJobs, ncli, log}
 	return jc
 }
 
-func (jc *JobCreator) createAndAddJob(ctx context.Context, cfg *nexus_client.ConfigConfig) error {
+func (jc *JobCreator) createAndAddJob(ctx context.Context, cfg *nexus_client.ConfigConfig, pendingJobs []string) error {
 	j := &jsv1.Job{}
 	j.Name = fmt.Sprintf("job-%d", jc.lastJobId)
 	j.Spec.JobId = jc.lastJobId
 	j.Spec.PowerNeeded = jc.MinJobPower + uint32(rand.Intn(int(jc.MaxJobPower-jc.MinJobPower)))
 	j.Spec.CreationTime = time.Now().Unix()
 	jc.lastJobId++
-	jc.log.Infof("Creating Job %s for requested power %d", j.Name, j.Spec.PowerNeeded)
+	jc.log.Infof("Creating Job %s for requested power %d [Pending Jobs %v]", j.Name, j.Spec.PowerNeeded, pendingJobs)
 	_, e := cfg.AddJobs(ctx, j)
 	return e
 }
@@ -63,8 +68,9 @@ func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
 		return e
 	}
 	pendingJobCnt := 0
+	pendingJobList := []string{}
 	for _, job := range allJobs {
-		if job.Status.State.PercentCompleted == 100 {
+		if job.Status.State.PercentCompleted >= 100 {
 			elapsedTime := time.Now().Unix() - job.Status.State.EndTime
 			// delete jobs that compleated an hour back.
 			if elapsedTime > 60*60 {
@@ -74,10 +80,11 @@ func (jc *JobCreator) checkAndCreateJobs(ctx context.Context) error {
 			}
 		} else {
 			pendingJobCnt += 1
+			pendingJobList = append(pendingJobList, job.DisplayName())
 		}
 	}
 	if pendingJobCnt < int(jc.MaxPendingJobs) && (jc.LimitJobCnt == 0 || uint64(jc.LimitJobCnt) > jc.lastJobId) {
-		if e = jc.createAndAddJob(ctx, cfg); e != nil {
+		if e = jc.createAndAddJob(ctx, cfg, pendingJobList); e != nil {
 			return e
 		}
 	}
