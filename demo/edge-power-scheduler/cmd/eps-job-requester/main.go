@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/signal"
 	"powerscheduler/pkg/dminit"
 	"powerscheduler/pkg/jobcreator"
 	nexus_client "powerschedulermodel/build/nexus-client"
@@ -14,7 +13,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -62,17 +60,7 @@ func main() {
 
 	// look for signal
 	g.Go(func() error {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		select {
-		case sig := <-sigs:
-			log.Infof("Received signal: %s", sig)
-			done()
-		case <-gctx.Done():
-			log.Debug("Closing signal goroutine")
-			return gctx.Err()
-		}
-		return nil
+		return dminit.SignalInit(gctx, done, log)
 	})
 	jobCreator.Start(nexusClient, g, gctx)
 	err := g.Wait()

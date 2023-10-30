@@ -17,10 +17,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// look at all the jobs that are pending execution
-// sort by creation time
-// schedule the jobs on different nodes, may be load all the edges.
-// periodically collect stats and update the jobs
+// This module is used for scheduling pending jobs on available edges
+// the jobs are collected form the config/jobscheduler tree
+// the available edges are collectected form inventory/edge tree
+// the output of this modules is allocation of jobse in desiredconfig/edgedc
+// as all the edges work on the workload they update the status in the edgedc node
+// this module will merge all the updated status back into the config/jobscheduler node.
+// jobs are executed in arrival order
+//
+// This module show a purely event based implementation using the data model.
+// the event based architecture should allow this module to handle large number of edges / jobs.
+// and to horizontally scale with the addtion of load sharing capability.
 
 type JobScheduler struct {
 	nexusClient    *nexus_client.Clientset
@@ -338,17 +345,17 @@ func (js *JobScheduler) setJSStatus(ctx context.Context, jscfg *nexus_client.Job
 }
 
 func (js *JobScheduler) Start(nexusClient *nexus_client.Clientset, g *errgroup.Group, gctx context.Context) {
+	// subscribe so the read events are processed in the local cache.
+	// and local cache is kept up to date from change events.
 	nexusClient.RootPowerScheduler().Config().Jobs("*").Subscribe()
 	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").Subscribe()
 	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").JobsInfo("*").Subscribe()
 
+	// call back registration for nodes
 	nexusClient.RootPowerScheduler().Config().Jobs("*").RegisterAddCallback(
 		func(obj *nexus_client.JobschedulerJob) {
 			js.reconcileRequest(gctx)
 		})
-	// nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").JobsInfo("*").RegisterAddCallback(
-	// 	func(obj *nexus_client.JobmgmtJobInfo) {
-	// 	})
 	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").JobsInfo("*").RegisterUpdateCallback(
 		func(oldObj *nexus_client.JobmgmtJobInfo, newObj *nexus_client.JobmgmtJobInfo) {
 			js.executorUpdate(gctx, oldObj, newObj)

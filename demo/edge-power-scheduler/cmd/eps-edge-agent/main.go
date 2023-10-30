@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"os/signal"
 	"powerscheduler/pkg/dminit"
 	ev1 "powerschedulermodel/build/apis/edge.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
 
 	"golang.org/x/sync/errgroup"
 
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -147,41 +145,11 @@ func main() {
 	eagent := edgeagent.New(edgeName, nexusClient)
 	// look for signal
 	g.Go(func() error {
-		sigs := make(chan os.Signal, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		select {
-		case sig := <-sigs:
-			log.Infof("Received signal: %s", sig)
-			done()
-		case <-gctx.Done():
-			log.Debug("Closing signal goroutine")
-			return gctx.Err()
-		}
-		return nil
+		return dminit.SignalInit(gctx, done, log)
 	})
-	// dcf2 := nexusClient.RootPowerScheduler().DesiredEdgeConfig()
-	//GetEdgesDC("kjdkj")
 
 	// timer task
-	g.Go(func() error {
-		tickerJob := time.NewTicker(10 * time.Second)
-		for {
-			select {
-			case <-tickerJob.C:
-				powerChangeCnt += 1
-				if powerChangeCnt == powerChangeAt {
-					powerChangeCnt = 0
-					AvailableCurrentPower = AvailablePowerOptions[rand.Intn(len(AvailablePowerOptions))]
-				}
-				// log.Infof("Iteration %d", cnt)
-				cnt += 1
-				jobPeriodicReconciler(ctx, log, nexusClient, dcfg, edgeName)
-			case <-gctx.Done():
-				log.Debug("Closing ticker")
-				return gctx.Err()
-			}
-		}
-	})
+	g.Go(func() error { return eagent.Start(gctx) })
 
 	err := g.Wait()
 	if err != nil {

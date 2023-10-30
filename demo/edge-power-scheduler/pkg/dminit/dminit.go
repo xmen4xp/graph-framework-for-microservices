@@ -2,16 +2,21 @@ package dminit
 
 import (
 	"context"
+	"os"
+	"os/signal"
 	cfgv1 "powerschedulermodel/build/apis/config.intel.com/v1"
 	dcfgv1 "powerschedulermodel/build/apis/desiredconfig.intel.com/v1"
 	invv1 "powerschedulermodel/build/apis/inventory.intel.com/v1"
 	rootv1 "powerschedulermodel/build/apis/root.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
+	"syscall"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
+// Initialized some of the base node that are needed to anchor the graph at the top level
+// These are singleton and will be mostly static.
 func Init(ctx context.Context, nexusClient *nexus_client.Clientset) error {
 	// A common pattern is to re-use fields between logging statements by re-using
 	// the logrus.Entry returned from WithFields()
@@ -58,4 +63,19 @@ func Init(ctx context.Context, nexusClient *nexus_client.Clientset) error {
 	}
 
 	return nil
+}
+
+func SignalInit(gctx context.Context, done context.CancelFunc, log *logrus.Logger) error {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case sig := <-sigs:
+		log.Infof("Received signal: %s", sig)
+		done()
+	case <-gctx.Done():
+		log.Debug("Closing signal goroutine")
+		return gctx.Err()
+	}
+	return nil
+
 }

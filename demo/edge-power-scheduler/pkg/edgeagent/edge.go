@@ -11,6 +11,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Edge agent that is going to run on each edge and will be receiving the
+// job request and will mark it complete after the power requested was delivered.
+// This module operates on the desiredconfig node and works on a single job
+// there is a random selection of power available at any time and will be used to make progress on the job
+//
+// The module show a periodic implementation and interaction with the data model with time based reconciler
 type EdgeAgent struct {
 	nexusClient           *nexus_client.Clientset
 	EdgeName              string
@@ -130,5 +136,18 @@ func (ea *EdgeAgent) JobPeriodicReconciler(ctx context.Context) {
 	}
 	if !foundOneJob {
 		ea.log.Info("Did not find any job pending in this time period.")
+	}
+
+}
+func (ea *EdgeAgent) Start(gctx context.Context) error {
+	tickerJob := time.NewTicker(10 * time.Second)
+	for {
+		select {
+		case <-tickerJob.C:
+			ea.JobPeriodicReconciler(gctx)
+		case <-gctx.Done():
+			ea.log.Debug("Closing ticker")
+			return gctx.Err()
+		}
 	}
 }

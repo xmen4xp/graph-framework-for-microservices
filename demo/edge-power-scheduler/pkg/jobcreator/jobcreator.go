@@ -23,6 +23,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// this module is used for generaton of demo job requests
+// each job will have a random power requirements
+// The module will load up to MaxPendingJobs in the queue and
+// will keep adding to the queue as jobs completes
+// The moudle will also do garbage collection and will delete jobs that are
+// more than and hour old.
+// A variable LimitJobCnt can be used for debug and limit how many jobs are generated
+// value of 0 indicates infinity.
+//
+// This module shows a timer based implementation of data model.
 type JobCreator struct {
 	MaxPendingJobs uint32
 	MaxJobPower    uint32
