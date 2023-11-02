@@ -4,7 +4,7 @@ import (
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
-var SchedularConfigAPI = nexus.RestAPISpec{
+var JOBRequesterAPI = nexus.RestAPISpec{
 	Uris: []nexus.RestURIs{
 		{
 			Uri:     "/v1alpha1/schedular",
@@ -13,7 +13,7 @@ var SchedularConfigAPI = nexus.RestAPISpec{
 	},
 }
 
-// nexus-rest-api-gen:SchedularConfigAPI
+// nexus-rest-api-gen:JOBRequesterAPI
 // nexus-description: Job requets api's
 type SchedulerConfig struct {
 	nexus.SingletonNode

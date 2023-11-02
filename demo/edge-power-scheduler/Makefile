@@ -1,4 +1,4 @@
-COMPILER_TAG=letsplay
+COMPILER_TAG ?= letsplay
 
 .PHONY: tidy
 tidy:

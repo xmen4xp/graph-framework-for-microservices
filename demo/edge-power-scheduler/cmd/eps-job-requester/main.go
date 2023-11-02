@@ -66,7 +66,7 @@ func main() {
 	err := g.Wait()
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			log.Debug("Context was cancled")
+			log.Debug("Context was cancelled")
 		} else {
 			log.Debugf("received error: %v", err)
 		}
