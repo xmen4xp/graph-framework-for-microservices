@@ -29,6 +29,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()
 	log.SetLevel(logrus.InfoLevel)
+
 	customFormatter := new(logrus.TextFormatter)
 	customFormatter.TimestampFormat = "15:04:05.000"
 	logrus.SetFormatter(customFormatter)

@@ -15,6 +15,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 // This module is used for scheduling pending jobs on available edges
@@ -36,6 +37,14 @@ type JobScheduler struct {
 	reconcileMutex sync.Mutex
 	log            *logrus.Entry
 	edgeLock       keymutex.KeyMutex
+	allocatedJobs  sync.Map //  map[string]bool
+	allocatedEdges sync.Map
+}
+type Decision struct {
+	jobIdx      int
+	edgeName    string
+	jobName     string
+	powerneeded uint32
 }
 
 func New(ncli *nexus_client.Clientset) *JobScheduler {
@@ -48,6 +57,7 @@ func New(ncli *nexus_client.Clientset) *JobScheduler {
 	js.log = log
 	js.edgeLock = keymutex.NewHashed(0)
 	js.statusMutex = sync.Mutex{}
+	// js.allocatedJobs = make(map[string]bool)
 	return js
 }
 
@@ -63,25 +73,33 @@ func (js *JobScheduler) isEdgeFree(ctx context.Context, edge *nexus_client.EdgeE
 		return false
 	}
 	jobs, e := dcEdge.GetAllJobsInfo(ctx)
+	if e != nil {
+		js.log.Error(e)
+	}
 	for _, job := range jobs {
 		if job.Status.State.Progress != 100 {
 			return false
 		}
 	}
+	if _, ok := js.allocatedEdges.Load(edge.DisplayName()); ok {
+		return false
+	}
 	return true
 }
 
 // find the next job in line for execution sorted based on arrival time.
-func (js *JobScheduler) nextInLineJob(jlist []*nexus_client.JobschedulerJob) (bool, int) {
+func (js *JobScheduler) nextInLineJob(jlist []*nexus_client.JobschedulerJob) (bool, int, int) {
 	first := true
 	foundIdx := 0
 	foundTimeStamp := int64(0)
+	availableJobs := 0
 	for idx, job := range jlist {
 		preq := uint32(0)
 		for _, pex := range job.Status.State.Execution {
 			preq += pex.PowerRequested
 		}
 		if job.Spec.PowerNeeded > preq {
+			availableJobs += 1
 			if job.Spec.CreationTime < foundTimeStamp || first {
 				foundTimeStamp = job.Spec.CreationTime
 				foundIdx = idx
@@ -89,85 +107,130 @@ func (js *JobScheduler) nextInLineJob(jlist []*nexus_client.JobschedulerJob) (bo
 			}
 		}
 	}
-	return !first, foundIdx
+	return !first, foundIdx, availableJobs
 }
 
-// allocate the job on the free edges.
-func (js *JobScheduler) allocateJob(ctx context.Context, job *nexus_client.JobschedulerJob, edgeList []*nexus_client.EdgeEdge, freeEdge []int) {
-	// job.Spec.PowerNeeded
-	preq := uint32(0)
-	for _, ex := range job.Status.State.Execution {
-		preq += ex.PowerRequested
-
-	}
-	// split poewrneeded into x parts
-	psplit := job.Spec.PowerNeeded / uint32(js.jobSplits)
-	// edge case for rounding error
-	psplitLast := job.Spec.PowerNeeded - psplit*(js.jobSplits-1)
+func (js *JobScheduler) createJobInfo(ctx context.Context, job *nexus_client.JobschedulerJob, edgeName string, dec *Decision) {
 
 	dcfg := js.nexusClient.RootPowerScheduler().DesiredEdgeConfig()
 
-	for _, fedge := range freeEdge {
-		pneeded := psplit
-		if preq+psplitLast == job.Spec.PowerNeeded {
-			pneeded = psplitLast
+	edc, e := dcfg.GetEdgesDC(ctx, edgeName)
+	if nexus_client.IsNotFound(e) {
+		newEdge := &edcv1.EdgeDC{}
+		newEdge.SetName(edgeName)
+		js.log.Infof("Creating the EdgeDC %s", edgeName)
+		edc, e = dcfg.AddEdgesDC(ctx, newEdge)
+		if e != nil {
+			js.log.Error("Creating Desired edge config", e)
 		}
-		preq += pneeded // allocated power
+	} else if e != nil {
+		js.log.Error(e)
+	}
+
+	jobInfo := &jiv1.JobInfo{}
+	jobInfo.SetName(dec.jobName)
+	jobInfo.Spec.RequestorJob = job.DisplayName()
+	jobInfo.Spec.PowerNeeded = dec.powerneeded
+	curTime := time.Now().Unix()
+	_, e = edc.AddJobsInfo(ctx, jobInfo)
+	if e != nil {
+		js.log.Errorf("When adding job info %s in edgedc %v", dec.jobName, e)
+	}
+	// update the requester
+	if job.Status.State.Execution == nil {
+		job.Status.State.Execution = make(map[string]jsv1.NodeExecutionStatus)
+	}
+	if len(job.Status.State.Execution) == 0 {
+		job.Status.State.StartTime = curTime
+	}
+	job.Status.State.Execution[dec.jobName] = jsv1.NodeExecutionStatus{
+		PowerRequested: dec.powerneeded,
+		StartTime:      0,
+		EndTime:        0,
+		Progress:       0,
+	}
+	job.Status.State.EndTime = curTime
+	//	js.allocatedJobs[job.DisplayName()] = true
+	// commit the data back
+	js.log.Infof("Creating DC JobInfo on edge %s with job %s => %s", edgeName, jobInfo.DisplayName(), jobInfo.Spec.RequestorJob)
+	if e := edc.Update(ctx); e != nil {
+		js.log.Fatal("When updating job spec", e)
+	}
+	if e := job.SetState(ctx, &job.Status.State); e != nil {
+		js.log.Fatal("When updating jop status", e)
+	}
+}
+
+// allocate the job on the free edges.
+func (js *JobScheduler) allocateJob(ctx context.Context, jobList []*nexus_client.JobschedulerJob,
+	edgeList []*nexus_client.EdgeEdge, freeEdge []int) {
+	decisions := make(map[string]Decision) // job decisions for each edge
+	jobAllocationMap := make(map[int]bool)
+	for _, fedge := range freeEdge {
+		// find the next job
+		first := true
+		jobIdx := 0
+		foundTimeStamp := int64(0)
+		for idx, job := range jobList {
+			preq := uint32(0)
+			for _, pex := range job.Status.State.Execution {
+				preq += pex.PowerRequested
+			}
+			// skip jobs that are allocated
+			if _, ok := jobAllocationMap[idx]; ok {
+				continue
+			}
+			if _, ok := js.allocatedJobs.Load(job.DisplayName()); ok {
+				continue
+			}
+			if job.Spec.PowerNeeded > preq {
+				if job.Spec.CreationTime < foundTimeStamp || first {
+					foundTimeStamp = job.Spec.CreationTime
+					jobIdx = idx
+					first = false
+				}
+			}
+		}
+		if first {
+			// no jobs found
+			break
+		}
 
 		edge := edgeList[fedge]
 		edgeName := edge.DisplayName()
-		jobName := fmt.Sprintf("%s-%s-%d", job.DisplayName(), edgeName, preq)
+		job := jobList[jobIdx]
+		jobAllocationMap[jobIdx] = true
+		jobName := fmt.Sprintf("%s-%s", job.DisplayName(), edgeName)
+		pneeded := job.Spec.PowerNeeded
+		js.log.Infof("Allocating job name = %s on edge %s JOBName %s PowerAllocated %d, TotalAllocations %d ",
+			job.DisplayName(), edgeName, jobName, pneeded, job.Spec.PowerNeeded)
 
-		js.log.Infof("Allocationg part of job name = %s on edge %s JOBName %s PowerAllocated %d, TotalAllocations %d / %d ",
-			job.DisplayName(), edgeName, jobName, pneeded, preq, job.Spec.PowerNeeded)
-		curTime := time.Now().Unix()
-		// create the desired state config
-		edc, e := dcfg.GetEdgesDC(ctx, edgeName)
-		if nexus_client.IsNotFound(e) {
-			newEdge := &edcv1.EdgeDC{}
-			newEdge.SetName(edgeName)
-			// js.log.Infof("Creating the EdgeDC %s", edgeName)
-			edc, e = dcfg.AddEdgesDC(ctx, newEdge)
-			if e != nil {
-				js.log.Error("Creating Desired edge config", e)
-			}
-		} else if e != nil {
-			js.log.Error(e)
-		}
-
-		jobInfo := &jiv1.JobInfo{}
-		jobInfo.SetName(jobName)
-		jobInfo.Spec.RequestorJob = job.DisplayName()
-		jobInfo.Spec.PowerNeeded = pneeded
-		_, e = edc.AddJobsInfo(ctx, jobInfo)
-		if e != nil {
-			js.log.Errorf("When adding job info %s in edgedc %v", jobName, e)
-		}
-		// update the requester
-		if job.Status.State.Execution == nil {
-			job.Status.State.Execution = make(map[string]jsv1.NodeExecutionStatus)
-		}
-		if len(job.Status.State.Execution) == 0 {
-			job.Status.State.StartTime = curTime
-		}
-		job.Status.State.Execution[jobName] = jsv1.NodeExecutionStatus{
-			PowerRequested: pneeded,
-			StartTime:      0,
-			EndTime:        0,
-			Progress:       0,
-		}
-		job.Status.State.EndTime = curTime
-		// commit the data back
-		if e := edc.Update(ctx); e != nil {
-			js.log.Error("When updating job spec", e)
-		}
-		if e := job.SetState(ctx, &job.Status.State); e != nil {
-			js.log.Error("When updating jop status", e)
-		}
-		if preq >= job.Spec.PowerNeeded {
-			return // done with this job allocation
+		decisions[edgeName] = Decision{
+			jobIdx:      jobIdx,
+			jobName:     jobName,
+			powerneeded: pneeded,
 		}
 	}
+
+	var wg sync.WaitGroup
+	sem := semaphore.NewWeighted(int64(5)) // run 10 at a time.
+	for edgeName, dec := range decisions {
+		wg.Add(1)
+		js.allocatedJobs.Store(dec.jobName, true)
+		js.allocatedEdges.Store(edgeName, jobList[dec.jobIdx].DisplayName())
+
+		go func(curDec Decision, eName string) {
+			defer wg.Done()
+			if e := sem.Acquire(ctx, 1); e != nil {
+				js.log.Errorf("Failed to acquire semaphore: %v", e)
+				return
+			}
+			defer sem.Release(1)
+			job := *jobList[curDec.jobIdx]
+			js.createJobInfo(ctx, &job, eName, &curDec)
+		}(dec, edgeName)
+	}
+	wg.Wait()
 }
 
 // reconcile the pending job to see if it can be allocated to edge
@@ -201,10 +264,10 @@ func (js *JobScheduler) reconcileRequest(ctx context.Context) {
 			freeEdges = append(freeEdges, idx)
 		}
 	}
-	js.log.Infof("Reconciler free Edges:%d", len(freeEdges))
 	// find out how many are idling
 	// if all busy then nonthing to do return
 	if len(freeEdges) == 0 {
+		js.log.Infof("Reconciler free Edges:0")
 		return // nothing to do
 	}
 
@@ -214,17 +277,17 @@ func (js *JobScheduler) reconcileRequest(ctx context.Context) {
 		js.log.Error(e)
 		return
 	}
-	jobFound, jobIdx := js.nextInLineJob(jlist)
-	js.log.Infof("Reconciler job found:%t.%d", jobFound, jobIdx)
+	jobFound, jobIdx, availableJobs := js.nextInLineJob(jlist)
+	js.log.Infof("Reconciler job found:%t.%d. TotalsjobsPending:%d FreeEdges:%d %v", jobFound, jobIdx, availableJobs, len(freeEdges), freeEdges)
 	if !jobFound {
 		return // nothing to do
 	}
 	// schedule the job on to the free edges
-	js.allocateJob(ctx, jlist[jobIdx], edges, freeEdges)
+	js.allocateJob(ctx, jlist, edges, freeEdges)
 
 	// do another round of reconcile so as to capture
 	// partially filled requests.
-	go func() { js.reconcileRequest(ctx) }()
+	//  go func() { js.reconcileRequest(ctx) }()
 }
 
 // update comming form execution to be fed back to the origin job status
@@ -243,7 +306,15 @@ func (js *JobScheduler) executorUpdate(ctx context.Context, oldObj *nexus_client
 	edgeName := edgedc.DisplayName()
 	js.edgeLock.LockKey(edgeName)
 	defer js.edgeLock.UnlockKey(edgeName)
-	js.log.Infof("Got executor Update for job %s Requestro %s Power %d Status %+v", jobName, reqJobName, obj.Spec.PowerNeeded, obj.Status.State)
+	js.log.Infof("Got executor Update for job %s Requestor %s Power %d Status %+v",
+		jobName, reqJobName, obj.Spec.PowerNeeded, obj.Status.State)
+	if obj.Status.State.Progress == 100 {
+		if jn, ok := js.allocatedEdges.Load(edgeName); ok {
+			if jn == reqJobName {
+				js.allocatedEdges.Delete(edgeName)
+			}
+		}
+	}
 	cfg := js.nexusClient.RootPowerScheduler().Config()
 	reqJob, e := cfg.GetJobs(ctx, reqJobName)
 	if e != nil {
@@ -295,6 +366,7 @@ func (js *JobScheduler) executorUpdate(ctx context.Context, oldObj *nexus_client
 		if e != nil {
 			js.log.Error("Error when cleaning up desired config jobInfo ", e)
 		}
+		js.allocatedJobs.Delete(reqJobName)
 	}
 	// update stats when job starts or updates
 	if obj.Status.State.Progress < 100 {
@@ -328,7 +400,7 @@ func (js *JobScheduler) getJSStatus(ctx context.Context) *nexus_client.Jobschedu
 		jscfg, e = js.nexusClient.RootPowerScheduler().Config().AddScheduler(ctx, &itm)
 	}
 	if e != nil {
-		js.log.Fatal("when gettting Scheduler status  ", e)
+		js.log.Fatal("when getting Scheduler status  ", e)
 	}
 	if jscfg.Status.State.CurrentJobsExecuting == nil {
 		jscfg.Status.State.CurrentJobsExecuting = make(map[string]jsv1.ExecutingJobStatus)
@@ -347,6 +419,7 @@ func (js *JobScheduler) setJSStatus(ctx context.Context, jscfg *nexus_client.Job
 func (js *JobScheduler) Start(nexusClient *nexus_client.Clientset, g *errgroup.Group, gctx context.Context) {
 	// subscribe so the read events are processed in the local cache.
 	// and local cache is kept up to date from change events.
+	nexusClient.RootPowerScheduler().Inventory().Edges("*").Subscribe()
 	nexusClient.RootPowerScheduler().Config().Jobs("*").Subscribe()
 	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").Subscribe()
 	nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").JobsInfo("*").Subscribe()
@@ -360,4 +433,6 @@ func (js *JobScheduler) Start(nexusClient *nexus_client.Clientset, g *errgroup.G
 		func(oldObj *nexus_client.JobmgmtJobInfo, newObj *nexus_client.JobmgmtJobInfo) {
 			js.executorUpdate(gctx, oldObj, newObj)
 		})
+
+	// timer task to check on stuck jobs and reschedule them.
 }

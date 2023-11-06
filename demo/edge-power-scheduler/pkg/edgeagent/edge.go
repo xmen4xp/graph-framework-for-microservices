@@ -28,9 +28,10 @@ type EdgeAgent struct {
 }
 
 func New(name string, nclient *nexus_client.Clientset) *EdgeAgent {
+	pm := int32(1)
 	e := &EdgeAgent{nclient,
 		name,
-		[4]int32{5, 10, 22, 37},
+		[4]int32{5 * pm, 10 * pm, 22 * pm, 37 * pm},
 		5,
 		0,
 		&sync.Mutex{},
@@ -140,6 +141,7 @@ func (ea *EdgeAgent) JobPeriodicReconciler(ctx context.Context) {
 
 }
 func (ea *EdgeAgent) Start(gctx context.Context) error {
+	// ea.nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC(ea.EdgeName).JobsInfo("*").Subscribe()
 	tickerJob := time.NewTicker(10 * time.Second)
 	for {
 		select {

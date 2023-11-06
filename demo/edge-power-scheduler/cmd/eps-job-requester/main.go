@@ -31,6 +31,14 @@ func main() {
 	if e != nil {
 		maxJobs = 0
 	}
+	maxPower, e := strconv.Atoi(os.Getenv("JOB_MAXPOWER"))
+	if e != nil {
+		maxPower = 500
+	}
+	minPower, e := strconv.Atoi(os.Getenv("JOB_MINPOWER"))
+	if e != nil {
+		minPower = 300
+	}
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()
 	log.SetLevel(logrus.InfoLevel)
@@ -52,11 +60,28 @@ func main() {
 		log.Fatal(e)
 	}
 	// add inventory item for self
-
+	startJobID, e := strconv.Atoi(os.Getenv("START_JOBID"))
+	if e != nil {
+		startJobID = 0
+		cfg, e := nexusClient.RootPowerScheduler().GetConfig(ctx)
+		if e != nil {
+			log.Error(e)
+		}
+		jobs, e := cfg.GetAllJobs(ctx)
+		if e != nil {
+			log.Error(e)
+		}
+		for _, jb := range jobs {
+			if startJobID < int(jb.Job.Spec.JobId) {
+				startJobID = int(jb.Job.Spec.JobId)
+			}
+		}
+		startJobID++
+	}
+	log.Infof("Starting job with id: %d", startJobID)
 	ctx, done := context.WithCancel(context.Background())
 	g, gctx := errgroup.WithContext(ctx)
-
-	jobCreator := jobcreator.New(nexusClient, 10, 800, 100, uint32(maxJobs))
+	jobCreator := jobcreator.New(nexusClient, 10, uint32(maxPower), uint32(minPower), uint32(maxJobs), uint64(startJobID))
 
 	// look for signal
 	g.Go(func() error {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"powerscheduler/pkg/dminit"
 	ev1 "powerschedulermodel/build/apis/edge.intel.com/v1"
+	dev1 "powerschedulermodel/build/apis/edgedc.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
 
 	"golang.org/x/sync/errgroup"
@@ -125,10 +126,23 @@ func main() {
 	if nexus_client.IsNotFound(e) {
 		newEdge, e = inv.AddEdges(ctx, &edge)
 		if e != nil {
-			log.Warn("Creating Inv Edge ", e)
+			log.Error("Creating Inv Edge ", e)
 		}
 	} else if e != nil {
 		log.Error("when getting Edge ", e)
+	}
+	// add desired config node
+	dc := nexusClient.RootPowerScheduler().DesiredEdgeConfig()
+	_, e = dc.GetEdgesDC(ctx, edgeName)
+	if nexus_client.IsNotFound(e) {
+		dcedge := dev1.EdgeDC{}
+		dcedge.Name = edgeName
+		_, e = dc.AddEdgesDC(ctx, &dcedge)
+		if e != nil {
+			log.Error("Creating DCEdge ", e)
+		}
+	} else if e != nil {
+		log.Error("when getting DCEdge ", e)
 	}
 
 	newEdge.Status.State.PowerInfo.TotalPowerAvailable = 100
