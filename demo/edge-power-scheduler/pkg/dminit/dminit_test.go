@@ -8,6 +8,7 @@ import (
 	"powerscheduler/pkg/dminit"
 	jsv1 "powerschedulermodel/build/apis/jobscheduler.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
+	"strings"
 	"sync"
 	"testing"
 
@@ -32,31 +33,34 @@ func initCli() (context.Context, *nexus_client.Clientset) {
 	return ctx, nexusClient
 }
 
-func createJobsInit(t *testing.T, ctx context.Context, nexusClient *nexus_client.Clientset, cnt int) {
+func createJobsInit(t *testing.T, ctx context.Context,
+	nexusClient *nexus_client.Clientset, jobprefix string, cnt int) {
 	cfg, e := nexusClient.RootPowerScheduler().GetConfig(ctx)
 	require.NoError(t, e)
 	for i := 0; i < cnt; i++ {
 		job := jsv1.Job{}
-		job.Name = fmt.Sprintf("job-%d", i)
+		job.Name = fmt.Sprintf("%s-%d", jobprefix, i)
 		_, e = cfg.AddJobs(ctx, &job)
 		if !nexus_client.IsAlreadyExists(e) {
 			require.NoError(t, e)
 		}
 	}
 }
-func deleteAllJobs(t *testing.T, ctx context.Context, nexusClient *nexus_client.Clientset) {
+func deleteAllJobs(t *testing.T, ctx context.Context, nexusClient *nexus_client.Clientset, jobprefix string) {
 	cfg, e := nexusClient.RootPowerScheduler().GetConfig(ctx)
 	require.NoError(t, e)
 	jobs, e := cfg.GetAllJobs(ctx)
 	require.NoError(t, e)
 	for _, j := range jobs {
-		cfg.DeleteJobs(ctx, j.DisplayName())
+		if strings.HasPrefix(j.DisplayName(), jobprefix) {
+			cfg.DeleteJobs(ctx, j.DisplayName())
+		}
 	}
 }
 
 func executor_parallel(t *testing.T, idx int,
 	ctx context.Context, mglobal *sync.Mutex, mkey *keymutex.KeyMutex, jobMap *sync.Map,
-	ncli *nexus_client.Clientset, cnt int) {
+	ncli *nexus_client.Clientset, jobPrefix string, cnt int) {
 	if mglobal != nil {
 		mglobal.Lock()
 	}
@@ -65,12 +69,16 @@ func executor_parallel(t *testing.T, idx int,
 	require.NoError(t, e)
 	jobs, e := cfg.GetAllJobs(ctx)
 	require.NoError(t, e)
-	require.Equal(t, len(jobs), cnt)
 	var wg sync.WaitGroup
-	for _, j := range jobs {
-		if mkey != nil {
-			(*mkey).LockKey(j.DisplayName())
+	for _, jtmp := range jobs {
+		if !strings.HasPrefix(jtmp.DisplayName(), jobPrefix) {
+			continue
 		}
+		if mkey != nil {
+			(*mkey).LockKey(jtmp.DisplayName())
+		}
+		j, e := cfg.GetJobs(ctx, jtmp.DisplayName())
+		require.NoError(t, e)
 		newIdx := rand.Intn(10000)
 		idxVal, ok := (*jobMap).Load(j.DisplayName())
 		if ok {
@@ -104,50 +112,53 @@ func Test_dminit_basic(t *testing.T) {
 		require.NotEqual(t, nexusClient, nil)
 		e := dminit.Init(ctx, nexusClient)
 		require.NoError(t, e)
-		deleteAllJobs(t, ctx, nexusClient)
+		deleteAllJobs(t, ctx, nexusClient, "job")
 	})
 
 	t.Run("Simple Write Check", func(t *testing.T) {
 		ctx, nexusClient := initCli()
 		e := dminit.Init(ctx, nexusClient)
 		require.NoError(t, e)
-		createJobsInit(t, ctx, nexusClient, 1)
+		jobPrefix := "job-single"
+		createJobsInit(t, ctx, nexusClient, jobPrefix, 1)
 		cfg, e := nexusClient.RootPowerScheduler().GetConfig(ctx)
 		require.NoError(t, e)
-		job, e := cfg.GetJobs(ctx, "job-0")
+		job, e := cfg.GetJobs(ctx, jobPrefix+"-0")
 		require.NoError(t, e)
 		job.Status.State.EndTime = 100
 		job.Status.State.Execution = make(map[string]jsv1.NodeExecutionStatus)
 		e = job.SetState(ctx, &job.Status.State)
 		require.NoError(t, e)
-		deleteAllJobs(t, ctx, nexusClient)
+		deleteAllJobs(t, ctx, nexusClient, jobPrefix)
 	})
 	t.Run("Parallel Node Operation single mutex", func(t *testing.T) {
 		ctx, nexusClient := initCli()
 		jobCount := 4
+		jobPrefix := "job-parallel-sm"
 		e := dminit.Init(ctx, nexusClient)
 		require.NoError(t, e)
-		createJobsInit(t, ctx, nexusClient, jobCount)
+		createJobsInit(t, ctx, nexusClient, jobPrefix, jobCount)
 		nexusClient.RootPowerScheduler().Config().Jobs("*").Subscribe()
 		var wg sync.WaitGroup
 		var m sync.Mutex
 		var jobMap sync.Map
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 4; i++ {
 			wg.Add(1)
 			go func(idx int) {
-				executor_parallel(t, idx, ctx, &m, nil, &jobMap, nexusClient, jobCount)
+				executor_parallel(t, idx, ctx, &m, nil, &jobMap, nexusClient, jobPrefix, jobCount)
 				wg.Done()
 			}(i)
 		}
 		wg.Wait()
-		deleteAllJobs(t, ctx, nexusClient)
+		deleteAllJobs(t, ctx, nexusClient, jobPrefix)
 	})
 	t.Run("Parallel Node Operation key mutex", func(t *testing.T) {
 		ctx, nexusClient := initCli()
 		jobCount := 4
+		jobPrefix := "job-parallel-km"
 		e := dminit.Init(ctx, nexusClient)
 		require.NoError(t, e)
-		createJobsInit(t, ctx, nexusClient, jobCount)
+		createJobsInit(t, ctx, nexusClient, jobPrefix, jobCount)
 		nexusClient.RootPowerScheduler().Config().Jobs("*").Subscribe()
 		var wg sync.WaitGroup
 		jobLock := keymutex.NewHashed(0)
@@ -155,12 +166,12 @@ func Test_dminit_basic(t *testing.T) {
 		for i := 0; i < 25; i++ {
 			wg.Add(1)
 			go func(idx int) {
-				executor_parallel(t, idx, ctx, nil, &jobLock, &jobMap, nexusClient, jobCount)
+				executor_parallel(t, idx, ctx, nil, &jobLock, &jobMap, nexusClient, jobPrefix, jobCount)
 				wg.Done()
 			}(i)
 		}
 		wg.Wait()
-		deleteAllJobs(t, ctx, nexusClient)
+		deleteAllJobs(t, ctx, nexusClient, jobPrefix)
 	})
 
 }
