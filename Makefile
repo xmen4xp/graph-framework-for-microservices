@@ -152,7 +152,7 @@ runtime.install.k0s: k0s.install dm.install_init api.install api-gw.run
 	$(info     kubectl -s localhost:8082 ...)
 	$(info )
 	$(info )
-	$(info To access nexus aip gateway using kubeconfig, export:)
+	$(info To access nexus api gateway using kubeconfig, export:)
 	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
 	$(info )
 	$(info ====================================================)
@@ -180,7 +180,7 @@ runtime.install.kind: kind.install dm.install_init api.install api-gw.kind.run
 	$(info To access runtime, you can execute kubectl as:)
 	$(info     kubectl -s localhost:${K8S_RUNTIME_PORT} ...)
 	$(info )
-	$(info To access nexus aip gateway using kubeconfig, export:)
+	$(info To access nexus api gateway using kubeconfig, export:)
 	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
 	$(info )
 	$(info ====================================================)
@@ -205,3 +205,24 @@ dm.install: dm.check-datamodel-dir
 		-e IMAGE=${DATAMODEL_IMAGE_NAME} \
 		bitnami/kubectl
 
+.PHONY: runtime.k0s.kubeconfig.export
+runtime.k0s.kubeconfig.export: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k0s/.kubeconfig
+runtime.k0s.kubeconfig.export:
+	$(info )
+	$(info Execute the below export statement on your shell:)
+	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
+	$(info )
+	@echo > /dev/null
+
+.PHONY: runtime.kind.kubeconfig.export
+runtime.kind.kubeconfig.export: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/kind/.${CLUSTER_NAME}/kubeconfig
+runtime.kind.kubeconfig.export:
+ifndef CLUSTER_NAME
+	$(error CLUSTER_NAME is mandatory)
+else
+	$(info )
+	$(info Execute the below export statement on your shell:)
+	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
+	$(info )
+endif
+	@echo > /dev/null

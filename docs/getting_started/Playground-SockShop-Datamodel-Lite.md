@@ -69,8 +69,6 @@ type Orders struct {
 
 ## Define Shipping model
 
-[[Prev]](Playground-SockShop-Lite.md) [[Exit]](../../README.md)   [[Next]](Playground-SockShop-Relationships-Lite.md)
-
 We also need a way to represent shipping info in our data model .
 
 ```
