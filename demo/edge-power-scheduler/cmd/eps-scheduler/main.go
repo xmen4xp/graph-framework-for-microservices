@@ -24,7 +24,7 @@ func main() {
 
 	dmAPIGWPort := os.Getenv("DM_APIGW_PORT")
 	if dmAPIGWPort == "" {
-		dmAPIGWPort = "8100"
+		dmAPIGWPort = "8000"
 	}
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()

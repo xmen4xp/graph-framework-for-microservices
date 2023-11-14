@@ -25,7 +25,7 @@ func main() {
 
 	dmAPIGWPort := os.Getenv("DM_APIGW_PORT")
 	if dmAPIGWPort == "" {
-		dmAPIGWPort = "8100"
+		dmAPIGWPort = "8000"
 	}
 	maxJobs, e := strconv.Atoi(os.Getenv("MAXJOBS"))
 	if e != nil {

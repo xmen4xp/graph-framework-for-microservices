@@ -47,22 +47,40 @@ Diagram showing data model sync between controller and edges
 
 
 ## Setup for the Single node simulation env. 
-Make sure you have the k8s cluster context setup as default context
-> Install the runtime (from nexus base directory i.e. /.../applications.development.framework.nexus)
+setup for the dev environment (First time setup)
+1. Set the base folder path where the repository is checked out 
 ```
- CLUSTER_NAME=c1 CLUSTER_PORT=8000 make runtime.install.kind
-
+export NEXUS_REPO_DIR=<addRepoFolderBasePath>/applications.development.framework.nexus
 ```
-
-> Export HOST_KUBECONFIG env from the previous step.
-
-> Build and install the data model from demo directory (/.../applications.development.framework.nexus/demo/edge-power-scheduler)
+2.  Install the runtime (from nexus base directory i.e. /.../applications.development.framework.nexus) (Change the cluster name and port number as needed)
 ```
+cd $NEXUS_REPO_DIR
+CLUSTER_NAME=c1 CLUSTER_PORT=8000 make runtime.install.kind
+```
+3. Make sure three containers are running (a example output is show here) 
+```
+> docker ps
+CONTAINER ID   IMAGE                  COMMAND                   CREATED             STATUS             PORTS                       NAMES
+306104102ff6   53f93e0ecc4b           "/bin/sh -c \"/bin/ap…"   About an hour ago   Up About an hour                               nexus-api-gw-c1
+951ac0af430d   bitnami/kubectl        "kubectl proxy -p 80…"    About an hour ago   Up About an hour                               k8s-proxy-c1
+54f919b6d071   kindest/node:v1.21.1   "/usr/local/bin/entr…"    2 weeks ago         Up 4 hours         127.0.0.1:41507->6443/tcp   c1-control-plane
+```
+4. Build and install the data model from demo directory (/.../applications.development.framework.nexus/demo/edge-power-scheduler)
+``` 
+cd $NEXUS_REPO_DIR/demo/edge-power-scheduler
 make dm
 make dm.install
 ```
-To start the system do the following 
+
+Done with the setup.
+
+### Single cluster Demo with one Edge 
+Make sure the setup is done and the data model is installed as described in the previous section.
+
+To run the system you will need to open 3 terminals 
 ```
+cd $NEXUS_REPO_DIR/demo/edge-power-scheduler
+
 # Cleanup the system 
 make k8s-clean
 
@@ -70,25 +88,56 @@ make k8s-clean
 make build 
 
 # In a terminal start edge-10 (Can repeat for additional edges)
-EDGE_NAME="edge-10" ./bin/eps-edge-agent
+EDGE_NAME="edge-10" DM_APIGW_PORT=8000 ./bin/eps-edge-agent
 
 # In a terminal start the scheduler
 DM_APIGW_PORT=8000 ./bin/eps-scheduler
 
 # In a terminal start the job requestor
-MAXJOBS=0 DM_APIGW_PORT=8000 ./bin/eps-job-requester
+DM_APIGW_PORT=8000 ./bin/eps-job-requester
 ```
-Additional Edges can be started by running  (Start as many as you want)
+
+This create a demo with a single worker node handling jobs. 
+The job requestor will start to backlog job request and the scheduler will schedule on the edge. 
+
+### Adding edges 
+
+Worker edges can be added elastically and the schedule will adept to using them for jobs.
+
+Add a nodes by either creating on a terminal 
 ```
-# In a terminal start edge-11
+cd $NEXUS_REPO_DIR/demo/edge-power-scheduler
 EDGE_NAME="edge-11" DM_APIGW_PORT=8000 ./bin/eps-edge-agent
+
 ```
+or by running a script to launch them (This example show running edges 100 to 109 with port as 8000 in parallel )
+```
+cd $NEXUS_REPO_DIR/demo/edge-power-scheduler
+./runsim 100 110 8000
+```
+
+You can see the edges are dynamically added and the system starts to schedule to them.
+
+
+### HA Operation of edges / schedular 
+
+Feel free to stop and start any of the edges by hitting Ctrl-C on the terminal. 
+The edges service and the scheduler should pick up the work when started.
+
+
+### API / CLI endpoint for the system 
 
 Interact with the system to see running stats
-> Open the rest api viewer at 
-http://localhost:8001/intel.com/docs#/
 
+To interact with API Explorer 
+> Open the rest api viewer at http://localhost:8001/intel.com/docs#/
+
+
+Some CLI commands to get information
 ```
+# General schedular stats can be checked by running cli command
+k get schedulerconfigs.jobscheduler.intel.com -o yaml
+
 # Job Status can be checked by running cli command 
 k get jobs.jobscheduler.intel.com -l  nexus/display_name=job-1 -o yaml
 
@@ -97,14 +146,7 @@ k get edges.edge.intel.com -l nexus/display_name=edge-10 -o yaml
 ```
 
 ## Setup for multi cluster simulation env.
-Deploy kind clusters C1, E1, E2, E3, E4
-On C1 install the full data model and the controller for the power scheduler
-on E1..4 create the sync agent and specific parts of the data model
 < Add details of the test setup>
 
- ## Additional Demos
- ### Dynamic-Scale-EaseOfOnboarding: Edges can join and leave at any time, part of the demo we can show this as elastic / dynamic system.
- <Add demo steps>
-
- ### A/Resilient: Edges can crash and restart / disconnect and reconnect without loss of system functionality.
+ ## Additional Demos - Scale 
 <Add Demo Steps>

@@ -1,7 +1,7 @@
 package edgedc
 
 import (
-	"powerschedulermodel/desiredconfig/edgedc/jobmgmt"
+	"powerschedulermodel/runtimedesiredconfig/edgedc/jobmgmt"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )

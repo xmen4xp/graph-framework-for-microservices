@@ -13,24 +13,21 @@ var JOBRequesterAPI = nexus.RestAPISpec{
 	},
 }
 
-// nexus-rest-api-gen:JOBRequesterAPI
-// nexus-description: Job requets api's
+// nex us-rest-api-gen:JOBRequesterAPI
+// nexus-description: Job request api's
 type SchedulerConfig struct {
 	nexus.SingletonNode
 	State JobSchedulerStatus `nexus:"status"`
 }
 
 type JobSchedulerStatus struct {
-	TotalJobsExecuted        ExectuedJobStats
-	CurrentJobsExecuting     map[string]ExecutingJobStatus
-	TotalJobsExecutedPerEdge map[string]ExectuedJobStats
-}
-
-type ExecutingJobStatus struct {
-	PowerRequested uint32
-	StartTime      int64
-	EndTime        int64
-	Progress       uint32
+	TotalJobsExecuted ExectuedJobStats
+	JobsQueued        uint32
+	JobsRunning       uint32
+	BusyEdges         uint32
+	FreeEdges         uint32
+	JobRate1Min       uint32
+	JobRate10Sec      uint32
 }
 
 type ExectuedJobStats struct {

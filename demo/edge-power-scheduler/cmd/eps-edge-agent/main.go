@@ -95,7 +95,7 @@ func main() {
 		edgeName = "edge-unk"
 	}
 	if dmAPIGWPort == "" {
-		dmAPIGWPort = "8100"
+		dmAPIGWPort = "8000"
 	}
 	rand.Seed(time.Now().UnixNano())
 	var log = logrus.New()

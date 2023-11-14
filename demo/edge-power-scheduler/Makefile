@@ -30,7 +30,7 @@ test:
 .PHONEY: k8s-clean
 k8s-clean:
 	 kubectl delete configs.config.intel.com --all
-	 kubectl delete desirededgeconfigs.desiredconfig.intel.com --all
+	 kubectl delete desirededgeconfigs.runtimedesiredconfig.intel.com --all
 	 kubectl delete edges.edge.intel.com --all
 	 kubectl delete edgedcs.edgedc.intel.com --all
 	 kubectl delete inventories.inventory.intel.com --all
@@ -65,4 +65,4 @@ run-generator: ./bin/eps-job-requester
 
 .PHONEY: run-edges
 run-edges: 
-	DM_APIGW_PORT=${APIGW_PORT} STARTID=0 ENDID=10 ./runsim.sh
+	./runsim.sh 0 10 ${APIGW_PORT}

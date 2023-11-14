@@ -2,21 +2,21 @@ package root
 
 import (
 	"powerschedulermodel/config"
-	"powerschedulermodel/desiredconfig"
 	"powerschedulermodel/inventory"
+	"powerschedulermodel/runtimedesiredconfig"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
 // Simulation scenario for DM demo :
 // Problem 1: run app on the edge device to make sure it does not consume more than
-// x Watts globaly and is taking < y% of the power available on the edge
-// Problem 2: Jobs are comming in with x amount of power needed per job,
+// x Watts globally and is taking < y% of the power available on the edge
+// Problem 2: Jobs are coming in with x amount of power needed per job,
 // schedule the jobs across multiple edges ...
-// track the completion of the jobs based on power availablity and schedule the next job.
+// track the completion of the jobs based on power availability and schedule the next job.
 // dm layout
-// Inventory -> Edges -> Power -> freePowerAvaialable
-//                     -> JobsRunning -> Progess
+// Inventory -> Edges -> Power -> freePowerAvailable
+//                     -> JobsRunning -> Progress
 // Config -> Jobs -> PowerNeeded / Status->Running on and progress
 
 // Setup for the Env. -
@@ -39,7 +39,7 @@ type PowerScheduler struct {
 	nexus.SingletonNode
 
 	// Spec Fields
-	Inventory         inventory.Inventory             `nexus:"child"`
-	Config            config.Config                   `nexus:"child"`
-	DesiredEdgeConfig desiredconfig.DesiredEdgeConfig `nexus:"child"`
+	Inventory         inventory.Inventory                    `nexus:"child"`
+	Config            config.Config                          `nexus:"child"`
+	DesiredEdgeConfig runtimedesiredconfig.DesiredEdgeConfig `nexus:"child"`
 }

@@ -5,9 +5,9 @@ import (
 	"os"
 	"os/signal"
 	cfgv1 "powerschedulermodel/build/apis/config.intel.com/v1"
-	dcfgv1 "powerschedulermodel/build/apis/desiredconfig.intel.com/v1"
 	invv1 "powerschedulermodel/build/apis/inventory.intel.com/v1"
 	rootv1 "powerschedulermodel/build/apis/root.intel.com/v1"
+	dcfgv1 "powerschedulermodel/build/apis/runtimedesiredconfig.intel.com/v1"
 	nexus_client "powerschedulermodel/build/nexus-client"
 	"syscall"
 
@@ -33,6 +33,9 @@ func Init(ctx context.Context, nexusClient *nexus_client.Clientset) error {
 		}
 	} else if e != nil {
 		log.Error("Get on RootPowerScheduler node resulted in error:", e)
+	}
+	if rps == nil {
+		log.Fatalf("Unable to get RPS Node.")
 	}
 	_, e = rps.GetConfig(ctx)
 	if nexus_client.IsChildNotFound(e) {
