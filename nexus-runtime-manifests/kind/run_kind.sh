@@ -85,8 +85,8 @@ sed -e "s/HTTP_SERVER_PORT/$server_port/g" -e "s/HEALTH_PROBE_ADDRESS/$health_ad
 
 # Create the kind k8s cluster
 KUBECONFIG_FILE=${CLUSTER_DIR}/kubeconfig
-kind create cluster -n $cluster_name
-kind export kubeconfig -n $cluster_name --kubeconfig ${KUBECONFIG_FILE}
+kind create cluster --name $cluster_name
+kind export kubeconfig --name $cluster_name --kubeconfig ${KUBECONFIG_FILE}
 chmod 666 ${KUBECONFIG_FILE}
 
 MOUNTED_KUBECONFIG=/etc/config/kubeconfig
