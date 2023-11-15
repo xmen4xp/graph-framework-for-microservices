@@ -11,14 +11,14 @@ The KUBECONFIG to export depends runtime being used in this playgroud.
 
 Run this make target to get the shell export command to execute:
 ```
-make runtime.k0s.kubeconfig.export
+make -C $NEXUS_REPO_DIR runtime.k0s.kubeconfig.export
 ```
 
 ***Option 2***: If you running a KIND based Nexus runtime:
 
 Run this make target to get the shell export command to execute:
 ```
-CLUSTER_NAME=<name> make runtime.k0s.kubeconfig.export
+CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.k0s.kubeconfig.export
 ```
 
 ***NOTE: Remember to execute the printed "export" command on your shell.***
