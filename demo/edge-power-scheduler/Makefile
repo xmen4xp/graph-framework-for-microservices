@@ -21,6 +21,7 @@ dm.install:
 
 .PHONEY: build
 build: #bin/eps-edge-agent
+	mkdir -p bin
 	go build -o bin ./...
 
 .PHONEY: test
