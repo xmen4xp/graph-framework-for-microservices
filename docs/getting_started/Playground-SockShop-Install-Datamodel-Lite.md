@@ -18,7 +18,7 @@ make -C $NEXUS_REPO_DIR runtime.k0s.kubeconfig.export
 
 Run this make target to get the shell export command to execute:
 ```
-CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.k0s.kubeconfig.export
+CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.kind.kubeconfig.export
 ```
 
 ***NOTE: Remember to execute the printed "export" command on your shell.***
