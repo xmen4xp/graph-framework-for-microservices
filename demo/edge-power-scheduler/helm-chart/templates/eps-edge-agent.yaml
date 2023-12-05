@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: eps-edge-agent
+  namespace: {{ default  .Release.Namespace .Values.namespace }}
+  labels:
+    app: eps-edge-agent 
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: eps-edge-agent 
+  template:
+    metadata:
+      labels:
+        app: eps-edge-agent 
+    spec:
+      {{- if eq .Values.global.tainted true }}
+      {{- end }}
+      containers:
+      - name: eps-edge-agent 
+{{- if ne .Values.imageRegistry "" }}
+        image: "{{.Values.imageRegistry}}/edge-power-manager:{{ .Values.imageTag }}"
+{{- else }}
+        image: "edge-power-manager:{{ .Values.imageTag }}"
+{{- end }}
+        command:
+        - /bin/eps-edge-agent
+        - -k
+        - /etc/config/kubeconfig/kubeconfig 
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "250m"
+          limits:
+            cpu: "250m"
+        env:
+        - name: KUBECONFIG
+          value: /etc/config/kubeconfig/kubeconfig
+        - name: EDGE_COUNT
+          value: "200"
+        - name: EDGE_NAME 
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: nexus-k8s-apiserver-kubeconfig
+          mountPath: "/etc/config/kubeconfig"
+          readOnly: true
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+      - name: nexus-k8s-apiserver-kubeconfig
+        secret:
+            secretName: nexus-k8s-apiserver-kubeconfig

@@ -7,11 +7,11 @@ import (
 var JobInfoRestAPISpec = nexus.RestAPISpec{
 	Uris: []nexus.RestURIs{
 		{
-			Uri:     "/v1alpha1/edge-desired-config/{edgedc.EdgeDC}/jobs/{jobmgmt.JobInfo}",
+			Uri:     "/v1alpha1/info/site/{sitedc.SiteDC}/edge/{edgedc.EdgeDC}/jobs/{jobmgmt.JobInfo}",
 			Methods: nexus.DefaultHTTPMethodsResponses,
 		},
 		{
-			Uri:     "/v1alpha1/edge-desired-config/{edgedc.EdgeDC}/jobs",
+			Uri:     "/v1alpha1/info/site/{sitedc.SiteDC}edge/{edgedc.EdgeDC}/jobs",
 			Methods: nexus.HTTPListResponse,
 		},
 	},
@@ -21,9 +21,10 @@ var JobInfoRestAPISpec = nexus.RestAPISpec{
 // nexus-description: This is for adding jobs to an edge
 type JobInfo struct {
 	nexus.Node
-	RequestorJob string
-	PowerNeeded  uint32    // amount of power needed Unit : watt-seconds.
-	State        JobStatus `nexus:"status"`
+	RequestorJob      string
+	RequestorJobGroup string
+	PowerNeeded       uint32    // amount of power needed Unit : watt-seconds.
+	State             JobStatus `nexus:"status"`
 }
 
 type JobStatus struct {

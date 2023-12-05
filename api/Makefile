@@ -7,7 +7,7 @@ BUCKET ?= nexus-template-downloads
 DOCKER_REPO ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
 VERSION ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
 NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
-NAMESPACE ?= ""
+NAMESPACE ?= "default"
 
 ifeq ($(DOCKER_REPO),)
 DOCKER_REPO=$(NAME)
@@ -29,6 +29,8 @@ datamodel_build:
 			-v /go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler/datamodel/build/ \
 			--volume $(realpath .)/build:/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler/generated/ \
 			--volume ~/.ssh:/root/.ssh \
+			--volume ${HOME}/.cache/go-build:/root/.cache/go-build \
+	        -e GOCACHE=/root/.cache/go-build \
 			-e CRD_MODULE_PATH=${CRD_MODULE_PATH} \
 			-e CONFIG_FILE=datamodel/nexus.yaml \
 			-e GOPRIVATE=*.eng.vmware.com \
@@ -61,3 +63,13 @@ docker_publish: docker_build
 
 .PHONY: build
 build: datamodel_build docker_build
+
+.PHONY: dm.install.helm
+dm.install.helm:
+	cd helm-chart; rm crds; ln -sf ../build/crds crds
+	cd helm-chart; helm install api -n ${NAMESPACE} --set global.datamodelName=api .
+
+.PHONY: dm.uninstall.helm
+dm.uninstall.helm:
+	rm helm-chart/crds
+	helm uninstall api

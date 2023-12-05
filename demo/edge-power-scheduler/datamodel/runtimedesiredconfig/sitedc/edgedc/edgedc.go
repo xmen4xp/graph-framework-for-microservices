@@ -1,7 +1,7 @@
 package edgedc
 
 import (
-	"powerschedulermodel/runtimedesiredconfig/edgedc/jobmgmt"
+	"powerschedulermodel/runtimedesiredconfig/sitedc/edgedc/jobmgmt"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
@@ -9,11 +9,11 @@ import (
 var EdgeDCRestAPISpec = nexus.RestAPISpec{
 	Uris: []nexus.RestURIs{
 		{
-			Uri:     "/v1alpha1/edge-desired-config/{edgedc.EdgeDC}",
+			Uri:     "/v1alpha1/info/sites/{sitedc.SiteDC}/edge/{edgedc.EdgeDC}",
 			Methods: nexus.DefaultHTTPMethodsResponses,
 		},
 		{
-			Uri:     "/v1alpha1/edge-desired-config",
+			Uri:     "/v1alpha1/info/sites/{sitedc.SiteDC}/edge",
 			Methods: nexus.HTTPListResponse,
 		},
 	},
@@ -23,5 +23,6 @@ var EdgeDCRestAPISpec = nexus.RestAPISpec{
 // nexus-description: This is for adding a desired edge config
 type EdgeDC struct {
 	nexus.Node
+
 	JobsInfo jobmgmt.JobInfo `nexus:"children"`
 }

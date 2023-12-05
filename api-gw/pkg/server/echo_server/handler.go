@@ -295,16 +295,16 @@ func getNameFromParam(nc *NexusContext, crdInfo model.NodeInfo) (string, string)
 	}
 
 	if crdInfo.IsSingleton {
-		if name == "" {
-			name = nexus.DEFAULT_KEY
-		}
-		if name != nexus.DEFAULT_KEY {
+		if len(name) > 0 && name != nexus.DEFAULT_KEY {
 			msg := fmt.Sprintf("Wrong singleton node name %s: %s for request %s, only '%s' is allowed as name",
 				crdInfo.Name, name, nc.Request().RequestURI, nexus.DEFAULT_KEY)
 			log.Debugf(msg)
 			log.Debugf("crdName: %s, nexusURI: %s, paramNames: %s, paramValues: %s", crdInfo.Name, nc.NexusURI, nc.ParamNames(), nc.ParamValues())
 			return "", msg
 		}
+
+		// Singleton's always have the DEFAULT_KEY has name.
+		name = nexus.DEFAULT_KEY
 	}
 
 	// Get name from query params

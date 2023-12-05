@@ -67,5 +67,8 @@ nexus-runtime-manifests/k0s/.kubeconfig
 # kind artifacts
 nexus-runtime-manifests/kind/\.*
 
+# k8s artifacts
+nexus-runtime-manifests/k8s/ca*
+
 # playgound app directory
 sock-shop-saas-app/*

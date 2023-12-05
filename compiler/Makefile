@@ -15,6 +15,10 @@ BUILDER_TAG ?= $(shell md5sum builder/Dockerfile | awk '{ print $1 }' | head -c 
 
 PKG_NAME?=/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/${GO_PROJECT_NAME}
 
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+DOCKER_BUILDER_PLATFORM ?= linux/${GOARCH}
+
 DATAMODEL_PATH ?= datamodel
 CONFIG_FILE ?= ""
 GENERATED_OUTPUT_DIRECTORY ?= generated
@@ -56,13 +60,13 @@ endif
 
 .PHONY: docker.builder
 docker.builder:
-	docker build --no-cache -t ${BUILDER_NAME}:${BUILDER_TAG} builder/
+	docker build --platform ${DOCKER_BUILDER_PLATFORM} --no-cache -t ${BUILDER_NAME}:${BUILDER_TAG} builder/
 
 .PHONY: docker
 docker: init_submodules ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists build_openapigen_in_container build_gqlgen_in_container build_install_validator_in_container
 	git archive -o compiler.tar --format=tar HEAD
 	tar -rf compiler.tar ../.git ../.gitmodules ../gqlgen ../kube-openapi ../nexus ../install-validator ../common-library
-	docker build --no-cache \
+	docker build --platform ${DOCKER_BUILDER_PLATFORM} --no-cache \
 		--build-arg BUILDER_TAG=${BUILDER_TAG} \
 		-t ${IMAGE_NAME}:${TAG} .
 
@@ -187,7 +191,7 @@ generate_code:
 	CRD_MODULE_PATH=${CRD_MODULE_PATH} go run cmd/nexus-sdk/main.go -config-file ${CONFIG_FILE} -dsl ${DATAMODEL_PATH} -crd-output _generated -log-level ${LOG_LEVEL}
 	mv _generated/api_names.sh scripts/
 	@echo "Nexus Compiler: Resolving datamodel dependencies"
-	cd _generated && ../scripts/pin_deps.sh ${COMPILER_SRC_DIRECTORY} && go mod tidy -e 2>/dev/null
+	cd _generated && ../scripts/pin_deps.sh ${COMPILER_SRC_DIRECTORY} && go mod tidy -e 
 	@echo "Nexus Compiler: Generating kuberenetes APIs"
 	./scripts/generate_k8s_api.sh
 	@echo "Nexus Compiler: Generating openapi schema"

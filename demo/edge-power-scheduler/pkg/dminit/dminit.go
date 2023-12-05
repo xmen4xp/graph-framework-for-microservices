@@ -44,16 +44,19 @@ func Init(ctx context.Context, nexusClient *nexus_client.Clientset) error {
 			return errors.WithMessage(e, "When creating Config Node")
 		}
 	} else if e != nil {
-		log.Error("Get on Config node resulted in error:", e)
+		log.Infof("Get on Config node resulted in error:", e)
+		rps.AddConfig(ctx, &cfgv1.Config{})
 	}
-	_, e = rps.GetDesiredEdgeConfig(ctx)
+	_, e = rps.GetDesiredSiteConfig(ctx)
 	if nexus_client.IsChildNotFound(e) {
 		log.Info("Node not found. Will create a new DesiredConfig node")
-		if _, e = rps.AddDesiredEdgeConfig(ctx, &dcfgv1.DesiredEdgeConfig{}); e != nil {
+		if _, e = rps.AddDesiredSiteConfig(ctx, &dcfgv1.DesiredSiteConfig{}); e != nil {
 			return errors.WithMessage(e, "When creating DesiredEdgeConfig Node")
 		}
 	} else if e != nil {
-		log.Error("Get on DesiredConfig node resulted in error:", e)
+		log.Infof("Get on DesiredConfig node resulted in error:", e)
+		rps.AddDesiredSiteConfig(ctx, &dcfgv1.DesiredSiteConfig{})
+
 	}
 	_, e = rps.GetInventory(ctx)
 	if nexus_client.IsChildNotFound(e) {
@@ -62,7 +65,8 @@ func Init(ctx context.Context, nexusClient *nexus_client.Clientset) error {
 			return errors.WithMessage(e, "When creating Inventory Node")
 		}
 	} else if e != nil {
-		log.Error("Get on Inventory node resulted in error:", e)
+		log.Infof("Get on Inventory node resulted in error:", e)
+		rps.AddInventory(ctx, &invv1.Inventory{})
 	}
 
 	return nil

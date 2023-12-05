@@ -1,0 +1,69 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: eps-generator
+  namespace: {{ default  .Release.Namespace .Values.namespace }}
+  labels:
+    app: eps-generator 
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: eps-generator 
+  template:
+    metadata:
+      labels:
+        app: eps-generator 
+    spec:
+      {{- if eq .Values.global.tainted true }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: eps
+                operator: In
+                values:
+                - generator
+      tolerations:
+      - key: eps
+        operator: Equal
+        value: generator
+      {{- end }}
+      containers:
+      - name: eps-generator 
+{{- if ne .Values.imageRegistry "" }}
+        image: "{{.Values.imageRegistry}}/edge-power-manager:{{ .Values.imageTag }}"
+{{- else }}
+        image: "edge-power-manager:{{ .Values.imageTag }}"
+{{- end }}
+        command:
+        - /bin/eps-job-requester
+        - -k
+        - /etc/config/kubeconfig/kubeconfig 
+        imagePullPolicy: Always
+        env:
+        - name: KUBECONFIG
+          value: /etc/config/kubeconfig/kubeconfig
+        - name: JOB_PENDING
+          value: "50"
+        - name: JOB_MAXPOWER
+          value: "1000"
+        - name: JOB_MINPOWER
+          value: "500"
+        - name: MAX_ACTIVE_JOBS
+          value: "500"
+        resources:
+          requests:
+            cpu: "500m"
+        volumeMounts:
+        - name: nexus-k8s-apiserver-kubeconfig
+          mountPath: "/etc/config/kubeconfig"
+          readOnly: true
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+      - name: nexus-k8s-apiserver-kubeconfig
+        secret:
+            secretName: nexus-k8s-apiserver-kubeconfig

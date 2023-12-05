@@ -1,13 +1,13 @@
 package config
 
 import (
-	"powerschedulermodel/config/jobscheduler"
+	"powerschedulermodel/config/jobgroup"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
 type Config struct {
 	nexus.SingletonNode
-	Jobs      jobscheduler.Job             `nexus:"children"`
-	Scheduler jobscheduler.SchedulerConfig `nexus:"child"`
+	JobGroups jobgroup.Jobgroup        `nexus:"children"`
+	Scheduler jobgroup.SchedulerConfig `nexus:"child"`
 }

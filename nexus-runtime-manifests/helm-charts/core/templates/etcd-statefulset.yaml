@@ -1,0 +1,241 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3-ebs
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  iopsPerGB: "500"
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+# Source: etcd/templates/svc-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-etcd-headless
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+  labels:
+    app: nexus-etcd
+    nexus: nexus-etcd
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: client
+      port: 2379
+      targetPort: client
+    - name: peer
+      port: 2380
+      targetPort: peer
+  selector:
+    {{- .Values.global.etcd.selectors | nindent 4}}
+---
+# Source: etcd/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-etcd
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+  labels:
+    app: nexus-etcd
+    nexus: nexus-etcd
+  annotations:
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: "client"
+      port: 2379
+      targetPort: client
+      nodePort: null
+    - name: "peer"
+      port: 2380
+      targetPort: peer
+      nodePort: null
+  selector:
+    {{- .Values.global.etcd.selectors | nindent 4}}
+---
+{{- if .Values.global.createEtcd }}
+# Source: etcd/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nexus-etcd
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+  labels:
+    app: nexus-etcd
+    nexus: nexus-etcd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nexus-etcd
+      nexus: nexus-etcd
+  serviceName: nexus-etcd-headless
+  podManagementPolicy: Parallel
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: nexus-etcd
+        nexus: nexus-etcd
+      annotations:
+    spec:
+      {{- if eq .Values.global.tainted true }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: nexus
+                operator: In
+                values:
+                - api
+      tolerations:
+      - key: nexus
+        operator: Equal
+        value: api
+      {{- end }}
+      securityContext:
+        fsGroup: 1001
+      serviceAccountName: "default"
+      containers:
+        - name: etcd
+          image: quay.io/coreos/etcd:v3.5.10
+          resources:
+            requests:
+              cpu: "4000m"
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+          env:
+            - name: BITNAMI_DEBUG
+              value: "true"
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_STS_NAME
+              value: "nexus-etcd"
+            - name: ETCDCTL_API
+              value: "3"
+            - name: ETCD_ON_K8S
+              value: "yes"
+            - name: ETCD_START_FROM_SNAPSHOT
+              value: "no"
+            - name: ETCD_DISASTER_RECOVERY
+              value: "no"
+            - name: ETCD_NAME
+              value: "$(MY_POD_NAME)"
+            - name: ETCD_DATA_DIR
+              value: "/bitnami/etcd/data"
+            - name: ETCD_LOG_LEVEL
+              value: "info"
+            - name: ALLOW_NONE_AUTHENTICATION
+              value: "yes"
+            - name: ETCD_AUTH_TOKEN
+              value: "simple"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: ETCD_ADVERTISE_CLIENT_URLS
+              value: "http://$(MY_POD_NAME).nexus-etcd-headless.$(POD_NAMESPACE).svc.cluster.local:2379,http://nexus-etcd.$(POD_NAMESPACE).svc.cluster.local:2379"
+            - name: ETCD_LISTEN_CLIENT_URLS
+              value: "http://0.0.0.0:2379"
+            - name: ETCD_INITIAL_ADVERTISE_PEER_URLS
+              value: "http://$(MY_POD_NAME).nexus-etcd-headless.$(POD_NAMESPACE).svc.cluster.local:2380"
+            - name: ETCD_LISTEN_PEER_URLS
+              value: "http://0.0.0.0:2380"
+            - name: ETCD_CLUSTER_DOMAIN
+              value: "nexus-etcd-headless.$(POD_NAMESPACE).svc.cluster.local"
+          envFrom:
+          ports:
+            - name: client
+              containerPort: 2379
+              protocol: TCP
+            - name: peer
+              containerPort: 2380
+              protocol: TCP
+#          livenessProbe:
+#            exec:
+#              command:
+#                - /opt/bitnami/scripts/etcd/healthcheck.sh
+#            initialDelaySeconds: 30
+#            periodSeconds: 5
+#            timeoutSeconds: 10
+#            successThreshold: 1
+#            failureThreshold: 10
+#          readinessProbe:
+#            exec:
+#              command:
+#                - /opt/bitnami/scripts/etcd/healthcheck.sh
+#            initialDelaySeconds: 30
+#            periodSeconds: 5
+#            timeoutSeconds: 10
+#            successThreshold: 1
+#            failureThreshold: 10
+          {{- template "etcd_resources" .}}
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/etcd
+      volumes:
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: "32Gi"
+        storageClassName: gp3-ebs
+{{- end }}
+---
+{{- if ne .Values.global.cronApiVersion "" }}
+apiVersion: {{ .Values.global.cronApiVersion }}
+{{- else if (.Capabilities.APIVersions.Has "batch/v1beta1/CronJob") -}}
+apiVersion: batch/v1beta1
+{{- else if (.Capabilities.APIVersions.Has "batch/v1/CronJob") }}
+apiVersion: batch/v1
+{{- end }}
+kind: CronJob
+metadata:
+  name: nexus-etcd-defrag
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+spec:
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  schedule: "0,30 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          serviceAccountName: default
+          restartPolicy: OnFailure
+          containers:
+          - name: etcd-defrag
+            image: {{.Values.global.registry}}/nexus-etcd-kubectl:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              set -euxo pipefail
+              ETCDCTL_API=3 etcdctl --endpoints=nexus-etcd:2379 endpoint status --write-out=table
+              ETCDCTL_API=3 etcdctl --endpoints=nexus-etcd:2379 defrag --cluster --command-timeout=300s
+              ETCDCTL_API=3 etcdctl --endpoints=nexus-etcd:2379 endpoint status --write-out=table
+              echo "etcd defragmented successfully!"

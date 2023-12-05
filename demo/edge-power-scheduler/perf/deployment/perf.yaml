@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: edge-power-scheduler-perf 
+  labels:
+    app: edge-power-scheduler-perf 
+spec:
+  replicas: 15
+  selector:
+    matchLabels:
+      app: edge-power-scheduler-perf 
+  template:
+    metadata:
+      labels:
+        app: edge-power-scheduler-perf 
+    spec:
+      containers:
+      - name: perf 
+        imagePullPolicy: Always
+        image: 822995803632.dkr.ecr.us-west-2.amazonaws.com/perf:letsplay
+        command: ["/bin/perf", "-k", "/etc/config/kubeconfig/kubeconfig", "-num-raw-crd-writers", "200"]
+        volumeMounts:
+        - name: nexus-k8s-apiserver-kubeconfig
+          mountPath: "/etc/config/kubeconfig"
+          readOnly: true
+      volumes:
+      - name: nexus-k8s-apiserver-kubeconfig
+        secret:
+            secretName: nexus-k8s-apiserver-kubeconfig

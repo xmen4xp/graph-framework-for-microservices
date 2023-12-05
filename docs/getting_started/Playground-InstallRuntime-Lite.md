@@ -20,7 +20,7 @@ echo letsplay > TAG
 ```
 #### Start Build
 ```
-sudo make clean.runtime; make runtime.build
+sudo make runtime.clean; make runtime.build
 ```
 
 ### 2. Install Runtime

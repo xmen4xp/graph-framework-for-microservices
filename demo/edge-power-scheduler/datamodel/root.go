@@ -41,5 +41,5 @@ type PowerScheduler struct {
 	// Spec Fields
 	Inventory         inventory.Inventory                    `nexus:"child"`
 	Config            config.Config                          `nexus:"child"`
-	DesiredEdgeConfig runtimedesiredconfig.DesiredEdgeConfig `nexus:"child"`
+	DesiredSiteConfig runtimedesiredconfig.DesiredSiteConfig `nexus:"child"`
 }

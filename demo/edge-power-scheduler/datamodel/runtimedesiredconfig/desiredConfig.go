@@ -1,12 +1,12 @@
 package runtimedesiredconfig
 
 import (
-	"powerschedulermodel/runtimedesiredconfig/edgedc"
+	"powerschedulermodel/runtimedesiredconfig/sitedc"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
-type DesiredEdgeConfig struct {
+type DesiredSiteConfig struct {
 	nexus.SingletonNode
-	EdgesDC edgedc.EdgeDC `nexus:"children"`
+	SitesDC sitedc.SiteDC `nexus:"children"`
 }

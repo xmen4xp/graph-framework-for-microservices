@@ -58,3 +58,58 @@ Nexus provides:
 ![Nexus](docs/images/Nexus.png)
 
 Given an application's intent as a declarative spec, Nexus provides the ability to consume the application's data / state through a plethora of commonly used interfaces and API.
+
+### What Nexus Is
+
+#### During development
+* It is a code and artifact generation toolkit. Given a single source of truth for application configuration / state, Nexus generates artifacts relevant to the application.
+* It is a convenience library and SDK that can be imported and invoked in code to work the the desired configuation / state.
+
+   NOTE: SDK is only available in Golang, at this point in time.
+
+#### During deployment
+
+* Can be deployed as a binary, container, pods etc. The deployment / release scheme is driven by the applicatoin needs.
+
+#### During runtime
+* Provides an API Gateway / Server that serves API artifacts that were generated using Nexus toolkit
+
+* Provides Kubernetes Resource Modelling and Kubernetes API for the configuration/state defined using Nexus toolkit.
+
+* Provides eventing pipeline that allows application's to subscribe and be notified of events relating to configuration/state.
+
+* Takes care of backup and restore of configuration/state managed by Nexus.
+
+* Can provide authentication function if configured appropriately.
+
+### What Nexus Is Not
+
+#### During development
+
+* It is not a framework to structure the application code layout / organization.
+
+* It does not implement business logic.
+
+* It does not dictate the design and/or architecture of your application.
+
+* It does not dictate the API formats that can be supported. Applications can directly expose other or alternate API endpoints as dicated by its design and business needs.
+
+* It does not restrict your application to be written for a specific platform.
+
+* It does not dictate packaging. Applications chose the packaging scheme per its business needs. For example, applications decide whether their artifacts should be released as binaries, containers, pods, virtual machines etc.
+
+* It does not dictate nor provide any CI/CD functions.
+
+* It does not provide any security / vulnerability scanning capabilities / functions.
+
+#### During deployment
+
+* It does not dictate or restrict the platforms on which the application can deployed and run. For example, it does not dictate nor need the application to be run only on Kubernetes.
+
+* It does not dictate how the application artifacts are released to production / customer.
+
+#### During runtime
+
+* It does not run or enforce business logic. The business logic is the responsibility of the application code.
+
+* Does not provide automatic SSL cert management capabilities.

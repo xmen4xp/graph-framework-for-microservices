@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/common-library/pkg/nexus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,12 +24,31 @@ import (
 var Client dynamic.Interface
 var CoreClient kubernetes.Interface
 var Host string
+var HostScheme string = "http"
+var HostTLSClientConfig rest.TLSClientConfig
+
 var NexusClient *nexus_client.Clientset
 
 func New(config *rest.Config) (err error) {
 
+	if config != nil {
+		HostTLSClientConfig = config.TLSClientConfig
+	}
+
 	if kubeApiHostPort, isSpecified := os.LookupEnv("KUBEAPI_ENDPOINT"); isSpecified {
-		Host = "http://" + kubeApiHostPort
+		parsedURI, err := url.Parse(kubeApiHostPort)
+		if err != nil {
+			return fmt.Errorf("Parsing URI %v failed with error %+v", kubeApiHostPort, err)
+		}
+
+		if parsedURI.Scheme != "" {
+			HostScheme = parsedURI.Scheme
+		}
+		Host = fmt.Sprintf("%s://%s", HostScheme, parsedURI.Host)
+
+		log.Debugf("kubeApiHostPortt: %+v", kubeApiHostPort)
+		log.Debugf("parserdURI: %+v", parsedURI)
+		log.Debugf("Host: %s", Host)
 	} else {
 		Host = config.Host
 	}
@@ -155,6 +176,19 @@ func (p Patch) Marshal() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+func GetParent(parentCrdType string, parentCrdInfo model.NodeInfo, labels map[string]string) (*unstructured.Unstructured, error) {
+	parentParts := strings.Split(parentCrdType, ".")
+	gvr := schema.GroupVersionResource{
+		Group:    strings.Join(parentParts[1:], "."),
+		Version:  "v1",
+		Resource: parentParts[0],
+	}
+
+	parentName := labels[parentCrdType]
+	hashedParentName := nexus.GetHashedName(parentCrdType, parentCrdInfo.ParentHierarchy, labels, parentName)
+	return GetObject(gvr, hashedParentName, metav1.GetOptions{})
+}
+
 // TODO: build PatchOP in common-library
 func UpdateParentWithAddedChild(parentCrdType string, parentCrdInfo model.NodeInfo, labels map[string]string, childCrdInfo model.NodeInfo, childCrdType string, childName string, childHashedName string) error {
 	var (
@@ -204,6 +238,7 @@ func UpdateParentWithAddedChild(parentCrdType string, parentCrdInfo model.NodeIn
 
 	_, err := Client.Resource(gvr).Patch(context.TODO(), hashedParentName, patchType, marshaled, metav1.PatchOptions{})
 	if err != nil {
+		log.Debugf("UpdateParentWithAddedChild: failed to patch %v with error %+v", hashedParentName, err)
 		return err
 	}
 

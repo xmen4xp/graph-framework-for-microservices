@@ -7,11 +7,11 @@ import (
 var EdgeRestAPISpec = nexus.RestAPISpec{
 	Uris: []nexus.RestURIs{
 		{
-			Uri:     "/v1alpha1/edges/{edge.Edge}",
+			Uri:     "/v1alpha1/sites/{site.Site}/edges/{edge.Edge}",
 			Methods: nexus.DefaultHTTPMethodsResponses,
 		},
 		{
-			Uri:     "/v1alpha1/edges",
+			Uri:     "/v1alpha1/sites/{site.Site}/edges",
 			Methods: nexus.HTTPListResponse,
 		},
 	},

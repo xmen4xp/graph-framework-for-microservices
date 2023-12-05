@@ -7,11 +7,11 @@ import (
 var JOBRequesterAPI = nexus.RestAPISpec{
 	Uris: []nexus.RestURIs{
 		{
-			Uri:     "/v1alpha1/job-requests/{jobscheduler.Job}",
+			Uri:     "/v1alpha1/job-groups/{jobgroup.Jobgroup}/job-requests/{jobscheduler.Job}",
 			Methods: nexus.DefaultHTTPMethodsResponses,
 		},
 		{
-			Uri:     "/v1alpha1/job-requests",
+			Uri:     "/v1alpha1/job-groups/{jobgroup.Jobgroup}/job-requests",
 			Methods: nexus.HTTPListResponse,
 		},
 	},

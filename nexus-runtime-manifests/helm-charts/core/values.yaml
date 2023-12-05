@@ -1,0 +1,19 @@
+global:
+  useHttps: false
+  tainted: true
+  nodeSelector:
+    nexus: api
+  k8sProxyServiceName: nexus-k8s-proxy
+  api_gateway:
+    pub_key: ""
+    cert: ""
+  registry: gcr.io/nsx-sm/nexus
+  cronApiVersion: "batch/v1"
+  resources: {}
+  proxy:
+    loadbalancer: false
+  createEtcd: true
+  etcd:
+    selectors: |
+        app: nexus-etcd
+        nexus: nexus-etcd

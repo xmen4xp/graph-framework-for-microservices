@@ -1,12 +1,12 @@
 package inventory
 
 import (
-	"powerschedulermodel/inventory/edge"
+	"powerschedulermodel/inventory/site"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
 type Inventory struct {
 	nexus.SingletonNode
-	Edges edge.Edge `nexus:"children"`
+	Site site.Site `nexus:"children"`
 }

@@ -11,6 +11,7 @@ DATAMODEL_REPO_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2
 NAMESPACE ?= ""
 HOST_KUBECONFIG ?= ${HOME}/.kube/config
 MOUNTED_KUBECONFIG ?= /etc/config/kubeconfig
+NEXUS_API_GW_K8S_NAMESPACE ?= default
 
 # values for nexus datamodel upgrade
 FORCE ?= true
@@ -114,6 +115,16 @@ dm.install:
 		--mount type=bind,source=$(realpath .)/datamodel_installer.sh,target=/datamodel_installer.sh,readonly \
 		--entrypoint /datamodel_installer.sh \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
-		-e NAME=${DATAMODEL_NAME} \
+		-e NAME={{.ModuleName}} \
 		-e IMAGE=${DATAMODEL_DOCKER_REPO} \
 		bitnami/kubectl
+
+.PHONY: dm.install.helm
+dm.install.helm:
+		cd helm-chart; rm crds; ln -sf ../build/crds crds
+		cd helm-chart; helm install {{.ModuleName}} --set datamodelName={{.ModuleName}} --set namespace=${NEXUS_API_GW_K8S_NAMESPACE} .
+
+.PHONY: dm.uninstall.helm
+dm.uninstall.helm:
+		cd helm-chart; rm crds
+		cd helm-chart; helm uninstall {{.ModuleName}}

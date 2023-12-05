@@ -89,14 +89,14 @@ spec:
       serviceAccountName: "default"
       containers:
         - name: etcd
-          image: {{.Values.global.registry}}/etcd:3.4.18-debian-10-r7
+          image: quay.io/coreos/etcd:v3.5.10
           imagePullPolicy: "IfNotPresent"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1001
           env:
             - name: BITNAMI_DEBUG
-              value: "false"
+              value: "true"
             - name: MY_POD_IP
               valueFrom:
                 fieldRef:
@@ -148,24 +148,24 @@ spec:
             - name: peer
               containerPort: 2380
               protocol: TCP
-          livenessProbe:
-            exec:
-              command:
-                - /opt/bitnami/scripts/etcd/healthcheck.sh
-            initialDelaySeconds: 30
-            periodSeconds: 5
-            timeoutSeconds: 10
-            successThreshold: 1
-            failureThreshold: 10
-          readinessProbe:
-            exec:
-              command:
-                - /opt/bitnami/scripts/etcd/healthcheck.sh
-            initialDelaySeconds: 30
-            periodSeconds: 5
-            timeoutSeconds: 10
-            successThreshold: 1
-            failureThreshold: 10
+#          livenessProbe:
+#            exec:
+#              command:
+#                - /opt/bitnami/scripts/etcd/healthcheck.sh
+#            initialDelaySeconds: 30
+#            periodSeconds: 5
+#            timeoutSeconds: 10
+#            successThreshold: 1
+#            failureThreshold: 10
+#          readinessProbe:
+#            exec:
+#              command:
+#                - /opt/bitnami/scripts/etcd/healthcheck.sh
+#            initialDelaySeconds: 30
+#            periodSeconds: 5
+#            timeoutSeconds: 10
+#            successThreshold: 1
+#            failureThreshold: 10
           {{- template "etcd_resources" .}}
           volumeMounts:
             - name: data
@@ -181,3 +181,41 @@ spec:
           requests:
             storage: "8Gi"
 {{- end }}
+---
+{{- if ne .Values.global.cronApiVersion "" }}
+apiVersion: {{ .Values.global.cronApiVersion }}
+{{- else if (.Capabilities.APIVersions.Has "batch/v1beta1/CronJob") -}}
+apiVersion: batch/v1beta1
+{{- else if (.Capabilities.APIVersions.Has "batch/v1/CronJob") }}
+apiVersion: batch/v1
+{{- end }}
+kind: CronJob
+metadata:
+  name: nexus-etcd-defrag
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+spec:
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  schedule: "0,30 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            sidecar.istio.io/inject: "false"
+        spec:
+          serviceAccountName: default
+          restartPolicy: OnFailure
+          containers:
+          - name: etcd-defrag
+            image: {{.Values.global.registry}}/nexus-etcd-kubectl:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              set -euxo pipefail
+              ETCDCTL_API=3 etcdctl --endpoints=nexus-etcd:2379 endpoint status --write-out=table
+              ETCDCTL_API=3 etcdctl --endpoints=nexus-etcd:2379 defrag --cluster
+              ETCDCTL_API=3 etcdctl --endpoints=nexus-etcd:2379 endpoint status --write-out=table
+              echo "etcd defragmented successfully!"

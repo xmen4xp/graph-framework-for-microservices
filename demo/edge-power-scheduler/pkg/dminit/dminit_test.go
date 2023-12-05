@@ -49,13 +49,16 @@ func createJobsInit(t *testing.T, ctx context.Context,
 func deleteAllJobs(t *testing.T, ctx context.Context, nexusClient *nexus_client.Clientset, jobprefix string) {
 	cfg, e := nexusClient.RootPowerScheduler().GetConfig(ctx)
 	require.NoError(t, e)
-	jobs, e := cfg.GetAllJobs(ctx)
-	require.NoError(t, e)
-	for _, j := range jobs {
+
+	jobs := cfg.GetAllJobsIter(ctx)
+	var j *nexus_client.JobschedulerJob
+	var getJobsError error
+	for j, getJobsError = jobs.Next(context.Background()); j != nil && getJobsError == nil; j, getJobsError = jobs.Next(context.Background()) {
 		if strings.HasPrefix(j.DisplayName(), jobprefix) {
 			cfg.DeleteJobs(ctx, j.DisplayName())
 		}
 	}
+	require.NoError(t, getJobsError)
 }
 
 func executor_parallel(t *testing.T, idx int,
@@ -67,10 +70,11 @@ func executor_parallel(t *testing.T, idx int,
 	t.Logf("Executor Parallel idx = %d starting", idx)
 	cfg, e := ncli.RootPowerScheduler().GetConfig(ctx)
 	require.NoError(t, e)
-	jobs, e := cfg.GetAllJobs(ctx)
-	require.NoError(t, e)
+	jobs := cfg.GetAllJobsIter(ctx)
 	var wg sync.WaitGroup
-	for _, jtmp := range jobs {
+	var jtmp *nexus_client.JobschedulerJob
+	var getJobsError error
+	for jtmp, getJobsError = jobs.Next(context.Background()); jtmp != nil && getJobsError == nil; jtmp, getJobsError = jobs.Next(context.Background()) {
 		if !strings.HasPrefix(jtmp.DisplayName(), jobPrefix) {
 			continue
 		}
@@ -97,6 +101,7 @@ func executor_parallel(t *testing.T, idx int,
 			}
 		}(j, mkey)
 	}
+	require.NoError(t, getJobsError)
 	wg.Wait()
 	t.Logf("Executor parallel idx = %d Done", idx)
 	if mglobal != nil {

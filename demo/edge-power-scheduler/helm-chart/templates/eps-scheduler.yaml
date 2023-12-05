@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: eps-scheduler 
+  namespace: {{ default  .Release.Namespace .Values.namespace }}
+  labels:
+    app: eps-scheduler
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: eps-scheduler 
+  template:
+    metadata:
+      labels:
+        app: eps-scheduler 
+    spec:
+      {{- if eq .Values.global.tainted true }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: eps
+                operator: In
+                values:
+                - scheduler
+      tolerations:
+      - key: eps
+        operator: Equal
+        value: scheduler
+      {{- end }}
+      containers:
+      - name: eps-scheduler 
+{{- if ne .Values.imageRegistry "" }}
+        image: "{{.Values.imageRegistry}}/edge-power-manager:{{ .Values.imageTag }}"
+{{- else }}
+        image: "edge-power-manager:{{ .Values.imageTag }}"
+{{- end }}
+        command:
+        - /bin/eps-scheduler 
+        - -k
+        - /etc/config/kubeconfig/kubeconfig 
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "500m"
+        env:
+        - name: KUBECONFIG
+          value: /etc/config/kubeconfig/kubeconfig
+        - name: NUM_SCHEDULER_REPLICAS
+          value: "1"
+        volumeMounts:
+        - name: nexus-k8s-apiserver-kubeconfig
+          mountPath: "/etc/config/kubeconfig"
+          readOnly: true
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+      - name: nexus-k8s-apiserver-kubeconfig
+        secret:
+            secretName: nexus-k8s-apiserver-kubeconfig

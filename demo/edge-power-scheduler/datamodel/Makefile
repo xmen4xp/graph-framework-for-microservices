@@ -8,7 +8,8 @@ COMPILER_DOCKER_REPO ?=
 VERSION ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
 DATAMODEL_DOCKER_REPO ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
 DATAMODEL_REPO_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
-NAMESPACE ?= ""
+DATAMODEL_GROUP_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
+NAMESPACE ?= "default"
 HOST_KUBECONFIG ?= ${HOME}/.kube/config
 MOUNTED_KUBECONFIG ?= /etc/config/kubeconfig
 
@@ -46,6 +47,31 @@ endif
 ifeq ($(VERSION),)
 VERSION="latest"
 endif
+
+.PHONEY: datamode_build_local_template
+datamode_build_local_template:
+	mkdir -p ${BUILD_DIR}
+	if [ ${FORCE} = false ] ; then \
+            		bash -c "${ARTIFACT_REPO_GITCMD}";\
+              		cp -rf ${TARGET_REPO_NAME}/crds ${BUILD_DIR} ;\
+                	echo "Copying of ${TARGET_REPO_NAME}/crds to the destination directory ${BUILD_DIR}/crds"; \
+    fi ;\
+
+	docker run --pull=missing\
+		--volume $(realpath .):/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler/datamodel/ \
+		-v /go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler/datamodel/build/ \
+		--volume $(realpath .)/build:/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler/generated/ \
+		--volume $(realpath ../../..)/compiler/pkg/generator/template:/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler/pkg/generator/template \
+		--volume ~/.ssh:/root/.ssh \
+		--volume ${HOME}/.cache/go-build:/root/.cache/go-build \
+		-e GOCACHE=/root/.cache/go-build \
+		-e CRD_MODULE_PATH=${CRD_MODULE_PATH} \
+		-e CONFIG_FILE=datamodel/nexus.yaml \
+		-e GOPRIVATE=*.eng.vmware.com \
+		-e GOINSECURE=*.eng.vmware.com \
+		-e FORCE=$(FORCE) \
+		${COMPILER_DOCKER_REPO}nexus/compiler:$(COMPILER_TAG) /bin/bash -c 'make generate_code && chown -R $(shell id -u):$(shell id -g) .;'; \
+
 
 .PHONY: datamodel_build
 datamodel_build:
@@ -119,3 +145,13 @@ dm.install:
 		-e NAME=${DATAMODEL_NAME} \
 		-e IMAGE=${DATAMODEL_DOCKER_REPO} \
 		bitnami/kubectl
+
+.PHONY: dm.install.helm
+dm.install.helm:
+	cd helm-chart; rm crds; ln -sf ../build/crds crds
+	cd helm-chart; helm install epm -n ${NAMESPACE} --set global.datamodelName=epm .
+
+.PHONY: dm.uninstall.helm
+dm.uninstall.helm:
+	cd helm-chart; rm crds
+	cd helm-chart; helm uninstall epm

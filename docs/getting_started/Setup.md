@@ -4,10 +4,10 @@
 
 Welcome to the Nexus Setup.
 
-This document will walk you through the setup needed to get your developer env ready to work with nexus.
+This document will walk you through the setup needed to get your developer env ready to work with Nexus, when working behind Intel VPN and/or Intel Proxy.
 
 
-## Compiling using Linux OS behind INTEL VPN
+## Package Management Settings
 
 ### setup the apt repository to use proxy (Add/update the apt conf file)
 ```

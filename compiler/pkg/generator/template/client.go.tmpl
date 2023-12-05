@@ -20,6 +20,7 @@ import (
 	"time"
 	"os"
 	"strconv"
+	"strings"
 	customerrors "errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,9 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 	"github.com/sirupsen/logrus"
 	"reflect"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 {{.HelperImport}}
 {{.CommonImport}}
@@ -39,8 +43,10 @@ fakeBaseClienset {{.FakeBaseCliensetImport}}
 )
 
 var log = logrus.New()
-const maxRetryCount = 12
+const maxRetryCount = 60
 const sleepTime = 5
+const maxRetryCount1SecSleep = 300
+
 const ownershipAnnotation string = "Ownership"
 
 // informerResyncPeriod is in second, default value is 10 Hrs(36000 Sec). INFORMER_RESYNC_PERIOD is os env to set Resync Period for informers
@@ -48,12 +54,14 @@ var informerResyncPeriod time.Duration = 36000
 
 type Clientset struct {
 	baseClient baseClientset.Interface
+	dynamicClient               *dynamic.DynamicClient
 	{{ range $key, $group := .ApiGroups }}{{$group.ClientsetApiGroups}}{{ end }}
 }
 
 type subscription struct {
-	informer cache.SharedIndexInformer
-	stop chan struct{}
+	informer     cache.SharedIndexInformer
+	stop chan    struct{}
+	WriteCacheObjects *sync.Map
 }
 
 // subscriptionMap will store crd string as key and value as subscription type,
@@ -64,6 +72,7 @@ func subscribe(key string, informer cache.SharedIndexInformer){
 	s:=subscription{
 		informer: informer,
 		stop: make(chan struct{}),
+		WriteCacheObjects: &sync.Map{},
 	}
 	go s.informer.Run(s.stop)
 	subscriptionMap.Store(key,s)
@@ -118,6 +127,7 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 
 	client := &Clientset{}
 	client.baseClient = baseClient
+	client.dynamicClient, _ = dynamic.NewForConfig(config) // TBD: check and react for error
 	{{ range $key, $group := .ApiGroups }}{{$group.InitApiGroups}}{{ end }}
 
 	return client, nil
@@ -160,29 +170,76 @@ func new{{$group.GroupTypeName}}(client *Clientset) *{{$group.GroupTypeName}} {
 
 
 {{ range $key, $node := .Nodes }}
+
+func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ChildrenMap() (map[string]{{$node.BaseImportName}}.Child) {
+	return map[string]{{$node.BaseImportName}}.Child{}
+}
+
+func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}Child(grp, kind, name string) ({{$node.BaseImportName}}.Child) {
+	return {{$node.BaseImportName}}.Child{
+		Group: grp,
+		Kind:  kind,
+		Name:  name,
+	}
+}
+
 // Get{{$node.BaseNodeName}}ByName returns object stored in the database under the hashedName which is a hash of display
 // name and parents names. Use it when you know hashed name of object.
 func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ByName(ctx context.Context, hashedName string) (*{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, error) {
 	key := "{{$node.CrdName}}"
 	if s, ok := subscriptionMap.Load(key); ok {
-		log.Debugf("[Get{{$node.BaseNodeName}}ByName] GetObject: %s from cache", hashedName)
+		// Check if the object is in write cache.
+		resWrCache, inWrCache := s.(subscription).WriteCacheObjects.Load(hashedName)
 		item, exists, _ := s.(subscription).informer.GetStore().GetByKey(hashedName)
 		if exists {
 			log.Debugf("[Get{{$node.BaseNodeName}}ByName] Object: %s exists in cache", hashedName)
-			result, _ := item.(*{{$node.GroupBaseImport}})
+			resultCache, _ := item.(*{{$node.GroupBaseImport}})
+			subsCacheVersion, subsCacheVersionErr := strconv.Atoi(resultCache.ResourceVersion)
+			if subsCacheVersionErr != nil {
+				log.Fatalf("[Get{{$node.BaseNodeName}}ByName] Getting version of Object: %s failed with error %v", hashedName, subsCacheVersionErr)
+			}
+
+			writeCacheVersion := 0
+			var writeCacheVersionErr error
+			if inWrCache {
+				writeCacheVersion, writeCacheVersionErr = strconv.Atoi(resWrCache.(*{{$node.GroupBaseImport}}).ResourceVersion)
+				if writeCacheVersionErr != nil {
+					log.Fatalf("[Get{{$node.BaseNodeName}}ByName] Getting version of Object: %s in write cache failed with error %v", hashedName, writeCacheVersionErr)
+				}
+			}
+
+			if !inWrCache || subsCacheVersion >= writeCacheVersion {
+				if inWrCache {
+					 s.(subscription).WriteCacheObjects.Delete(hashedName)
+				}
+				return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
+					client: group.client,
+					{{$node.BaseNodeName}}: resultCache,
+				}, nil
+			}
+		}
+		if inWrCache {
 			return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-				client: group.client,
-				{{$node.BaseNodeName}}: result,
-			}, nil
+					client: group.client,
+					{{$node.BaseNodeName}}: resWrCache.(*{{$node.GroupBaseImport}}),
+				}, nil
 		}
 	}
+
 	retryCount := 0
 	for {
 		result, err := group.client.baseClient.
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Get(ctx, hashedName, metav1.GetOptions{})
-		if err != nil {
-			log.Errorf("[Get{{$node.BaseNodeName}}ByName] Failed to Get {{$node.GroupResourceNameTitle}}: %+v",err)
+		if err == nil {
+			return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
+				client: group.client,
+				{{$node.BaseNodeName}}: result,
+			}, nil
+		} else if errors.IsNotFound(err) {
+			log.Debugf("[Get{{$node.BaseNodeName}}ByName]: object %v not found", hashedName)
+			return nil, err
+		} else {
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
 				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
 				if retryCount == maxRetryCount {
@@ -198,11 +255,6 @@ func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ByName(ctx contex
 				log.Errorf("[Get{{$node.BaseNodeName}}ByName]: %+v",err)
 				return nil, err
 			}
-		} else{
-			return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-				client: group.client,
-				{{$node.BaseNodeName}}: result,
-			}, nil
 		}
 	}
 }
@@ -247,11 +299,11 @@ func (group *{{$node.GroupTypeName}}) ForceRead{{$node.BaseNodeName}}ByName(ctx 
 // display name and parents names. Use it when you know hashed name of object.
 func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx context.Context, hashedName string) (err error) {
 	log.Debugf("[Delete{{$node.BaseNodeName}}ByName] Received objectToDelete: %s", hashedName)
-	{{if or .HasChildren .Parent.HasParent }}
 	var (
 		retryCount int
 		result *{{$node.GroupBaseImport}}
 	)
+	{{if or .HasChildren .Parent.HasParent }}
 	retryCount = 0
 	for {
 		result, err = group.client.baseClient.
@@ -287,28 +339,13 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 		return err
 	}
 	{{ range $key, $link := .Children }}
-	{{ if $link.IsNamed }}
-	for _, v := range result.Spec.{{$link.FieldName}}Gvk {
-		err := group.client.
-		{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, v.Name)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}else{
-				return err
-			}
-		}
-	}
-	{{ else }}
-	if result.Spec.{{$link.FieldName}}Gvk != nil {
-		err := group.client.
-		{{$link.SimpleGroupTypeName}}().
-		Delete{{$link.BaseNodeName}}ByName(ctx, result.Spec.{{$link.FieldName}}Gvk.Name)
-		if err != nil && !errors.IsNotFound(err) {
+	for _, child := range GetChildren("{{$node.CrdName}}", hashedName, "{{$link.CrdName}}") {
+		err := group.client.{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, child)
+		if err != nil && errors.IsNotFound(err) == false {
 			return err
 		}
+		RemoveChild("{{$node.CrdName}}", hashedName, "{{$link.CrdName}}", child)
 	}
-	{{ end }}
 	{{ end }}
 
 	retryCount = 0
@@ -337,14 +374,16 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 				return err
 			}
 		} else {
+			if s, ok := subscriptionMap.Load("{{$node.CrdName}}"); ok {
+				s.(subscription).WriteCacheObjects.Delete(hashedName)
+			}
 			break
 		}
 	}
 	// Get Parent Node and check if gvk present before patch
 	{{if .Parent.HasParent}}
-	var gvkPresent bool
 	log.Debugf("[Delete{{$node.BaseNodeName}}ByName] Get parent details for object: %s",hashedName)
-	var patch Patch
+	// var patch Patch
 	parents := result.GetLabels()
 	if parents == nil {
 		parents = make(map[string]string)
@@ -360,83 +399,9 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 	} else {
 		parentName = helper.GetHashedName("{{$node.Parent.CrdName}}", parents, parentName)
 	}
-	parentData, err := group.client.baseClient.
-				{{$node.Parent.GroupTypeName}}().
-				{{$node.Parent.GroupResourceNameTitle}}().Get(ctx, parentName, metav1.GetOptions{})
-	if err != nil{
-		log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Failed to get parent node for obj:(%s) %+v",hashedName,err)
-		if errors.IsNotFound(err){
-			return nil
-		} else{
-			return err
-		}
-	}
-	{{if .Parent.IsNamed}}
-	var displayName string
-	// Iterate Parent Gvk
-	for k,v := range parentData.Spec.{{.Parent.GoGvkFieldName}}{
-		if hashedName == v.Name{
-			displayName = k
-			log.Debugf("[Delete{{$node.BaseNodeName}}ByName] GVK %s is present in parent for node: %s",k,hashedName)
-			gvkPresent = true
-		}
-	}
-	{{ else }}
-	if parentData.Spec.{{.Parent.GoGvkFieldName}} != nil {
-		log.Debugf("[Delete{{$node.BaseNodeName}}ByName] GVK present in parent for node: %s",hashedName)
-		gvkPresent = true
-	}
+	RemoveChild("{{$node.Parent.CrdName}}", parentName, "{{$node.CrdName}}", hashedName)
 	{{ end }}
-	if gvkPresent {
-		{{if .Parent.IsNamed}}
-		patchOp := PatchOp{
-			Op:   "remove",
-			Path: "/spec/{{$node.Parent.GvkFieldName}}/" + displayName,
-		}
-		{{ else }}
-		patchOp := PatchOp{
-			Op:   "remove",
-			Path: "/spec/{{$node.Parent.GvkFieldName}}",
-		}
-		{{ end }}
-		patch = append(patch, patchOp)
-		marshaled, err := patch.Marshal()
-		if err != nil {
-			return err
-		}
-
-		retryCount = 0
-		newCtx := context.TODO()
-		for {
-			_, err = group.client.baseClient.
-			{{$node.Parent.GroupTypeName}}().
-			{{$node.Parent.GroupResourceNameTitle}}().Patch(newCtx, parentName, types.JSONPatchType, marshaled, metav1.PatchOptions{})
-			if err != nil {
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} gvk in parent node[{{$node.Parent.GroupResourceNameTitle}}]: %+v", err)
-				if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-					log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
-					if retryCount == maxRetryCount {
-						log.Errorf("Max retry exceed on patching gvk: %s",hashedName)
-						return err
-					}
-					retryCount +=1
-					time.Sleep(sleepTime * time.Second)
-				} else if customerrors.Is(err, context.Canceled){
-					log.Errorf("[Delete{{$node.BaseNodeName}}ByName]: context canceled: %s",hashedName)
-					return context.Canceled
-				} else {
-					log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",hashedName,err)
-					return err
-				}
-			} else {
-				log.Debugf("[Delete{{$node.BaseNodeName}}ByName] Patch {{$node.BaseNodeName}} Success: %s",hashedName)
-				break
-			}
-		}
-		log.Debugf("[Delete{{$node.BaseNodeName}}ByName] Executed Successfully: %s",hashedName)
-	}
-	{{ end }}
-	return
+	return nil
 }
 
 // Create{{$node.BaseNodeName}}ByName creates object in the database without hashing the name.
@@ -463,8 +428,6 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 		retryCount int
 		result *{{$node.GroupBaseImport}}
 		err error
-		{{if .Parent.HasParent}}exists bool 
-		existsErr error {{ end }}
 	)
 	retryCount = 0
 	for {
@@ -486,8 +449,10 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 				return nil,context.Canceled
 			}{{if .Parent.HasParent}} else if errors.IsAlreadyExists(err) {
 				log.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s already exists, error: %+v",objToCreate.GetName(), err)
-				exists = true
-				existsErr = err
+				result, err = group.client.baseClient.{{$node.GroupTypeName}}().{{$node.GroupResourceNameTitle}}().Get(ctx, objToCreate.GetName(), metav1.GetOptions{})
+				if err != nil {
+					log.Fatalf("[Create{{$node.BaseNodeName}}ByName] Unable to Get {{$node.BaseNodeName}} %s after it was flagged as already exists, error: %+v", objToCreate.GetName(), err)
+				}
 				break
 			}{{ end }} else {
 				log.Errorf("[Create{{$node.BaseNodeName}}ByName] found unexpected error while creating {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
@@ -495,6 +460,10 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 			}
 		} else {
 			log.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s created successfully",objToCreate.GetName())
+			if s, ok := subscriptionMap.Load("{{$node.CrdName}}"); ok {
+				log.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s stored in wr-cache",objToCreate.GetName())
+				s.(subscription).WriteCacheObjects.Store(objToCreate.GetName(), result)
+			}
 			break
 		}
 	}
@@ -503,141 +472,11 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 	if !ok {
 		parentName = helper.DEFAULT_KEY
 	}
-	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] == "true" {
-		parentName = helper.GetHashedName("{{$node.Parent.CrdName}}", objToCreate.GetLabels(), parentName)
-	}
-	{{if .Parent.IsNamed}}
-	if exists {
-		parent, err2 := group.client.{{$node.Parent.SimpleGroupTypeName}}().Get{{$node.Parent.BaseNodeName}}ByName(context.Background(),parentName)
-		if err2 != nil {
-			log.Errorf("[Create{{$node.BaseNodeName}}ByName] Failed to get parent of {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
-			return nil, err2
-		}
-		_, ok := parent.Spec.{{$node.Parent.GoGvkFieldName}}[objToCreate.DisplayName()]
-		if ok {
-			return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-				client: group.client,
-				{{$node.BaseNodeName}}: result,
-			}, existsErr
-		}
-	}
-	payload := "{\"spec\": {\"{{$node.Parent.GvkFieldName}}\": {\"" + objToCreate.DisplayName() + "\": {\"name\": \"" + objToCreate.Name + "\",\"kind\": \"{{$node.Kind}}\", \"group\": \"{{$node.Group}}\"}}}}"
+	parentHashedName := helper.GetHashedName("{{$node.Parent.CrdName}}", objToCreate.GetLabels(), parentName)
 
-	retryCount = 0
-	newCtx := context.TODO()
-	for {
-		_, err = group.client.baseClient.
-		{{$node.Parent.GroupTypeName}}().
-		{{$node.Parent.GroupResourceNameTitle}}().Patch(newCtx, parentName, types.MergePatchType, []byte(payload), metav1.PatchOptions{})
-		if err != nil {
-			log.Errorf("[Create{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} gvk in parent node[{{$node.Parent.GroupResourceNameTitle}}] %+v",err)
-			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToCreate.GetName(),err)
-				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on patching gvk: %s",objToCreate.GetName())
-					log.Debugf("[Create{{$node.BaseNodeName}}ByName] Trigger {{$node.BaseNodeName}} delete: %s",objToCreate.GetName())
-					delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToCreate.GetName())
-					if delErr != nil {
-						log.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %s",objToCreate.GetName())
-						return nil, delErr
-					}
-					log.Debugf("{{$node.BaseNodeName}} Deleted: %s",objToCreate.GetName())
-					return nil, err
-				}
-				retryCount +=1
-				time.Sleep(sleepTime * time.Second)
-			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Create{{$node.BaseNodeName}}ByName]: context canceled: %s",objToCreate.GetName())
-				return nil,context.Canceled
-			} else {
-				log.Errorf("[Create{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",objToCreate.GetName(),err)
-				log.Debugf("Trigger {{$node.BaseNodeName}} delete: %s",objToCreate.GetName())
-				delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToCreate.GetName())
-				if delErr != nil {
-					log.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %s",objToCreate.GetName())
-					return nil, delErr
-				}
-				log.Debugf("{{$node.BaseNodeName}} Deleted: %s",objToCreate.GetName())
-				return nil, err
-			}
-		} else {
-			log.Debugf("[Create{{$node.BaseNodeName}}ByName] Patch {{$node.BaseNodeName}} Success :%s",objToCreate.GetName())
-			break
-		}
-	}
-	{{ else }}
-	if exists {
-		parent, err2 := group.client.{{$node.Parent.SimpleGroupTypeName}}().Get{{$node.Parent.BaseNodeName}}ByName(context.Background(),parentName)
-		if err2 != nil {
-			log.Errorf("[Create{{$node.BaseNodeName}}ByName] Failed to get parent of {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
-			return nil, err2
-		}
-		if parent.Spec.{{$node.Parent.GoGvkFieldName}} != nil {
-			return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-				client: group.client,
-				{{$node.BaseNodeName}}: result,
-			}, existsErr
-		}
-	}
-	var patch Patch
-	patchOp := PatchOp{
-		Op:   "replace",
-		Path: "/spec/{{$node.Parent.GvkFieldName}}",
-		Value: {{$node.BaseImportName}}.Child{
-		Group: "{{$node.Group}}",
-		Kind:  "{{$node.Kind}}",
-		Name:  objToCreate.Name,
-	},
-	}
-	patch = append(patch, patchOp)
-	marshaled, err := patch.Marshal()
-	if err != nil {
-		return nil, err
-	}
-	retryCount = 0
-	newCtx := context.TODO()
-	for {
-		_, err = group.client.baseClient.
-		{{$node.Parent.GroupTypeName}}().
-		{{$node.Parent.GroupResourceNameTitle}}().Patch(newCtx, parentName, types.JSONPatchType, marshaled, metav1.PatchOptions{})
-		if err != nil {
-			log.Errorf("[Create{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} gvk in parent node[{{$node.Parent.GroupResourceNameTitle}}]: %+v",err)
-			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToCreate.GetName(),err)
-				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on patching gvk: %s",objToCreate.GetName())
-					log.Debugf("Trigger {{$node.BaseNodeName}} delete: %s",objToCreate.GetName())
-					delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToCreate.GetName())
-					if delErr != nil {
-						log.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %s",objToCreate.GetName())
-						return nil, delErr
-					}
-					log.Debugf("{{$node.BaseNodeName}} Deleted: %s",objToCreate.GetName())
-					return nil, err
-				}
-				retryCount +=1
-				time.Sleep(sleepTime * time.Second)
-			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Create{{$node.BaseNodeName}}ByName]: context canceled: %s",objToCreate.GetName())
-				return nil,context.Canceled
-			} else {
-				log.Errorf("[Create{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",objToCreate.GetName(),err)
-				log.Debugf("Trigger {{$node.BaseNodeName}} Delete: %s",objToCreate.GetName())
-				delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToCreate.GetName())
-				if delErr != nil {
-					log.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %+v",objToCreate.GetName())
-					return nil, delErr
-				}
-				log.Debugf("{{$node.BaseNodeName}} Deleted: %s",objToCreate.GetName())
-				return nil, err
-			}
-		} else {
-			log.Debugf("[Create{{$node.BaseNodeName}}ByName] Patch {{$node.BaseNodeName}} Success :%s",objToCreate.GetName())
-			break
-		}
-	}
+	AddChild("{{$node.Parent.CrdName}}", parentHashedName, "{{$node.CrdName}}", objToCreate.Name)
 	{{ end }}
-	{{ end }}
+
 	log.Debugf("[Create{{$node.BaseNodeName}}ByName] Executed Successfully: %s",objToCreate.GetName())
 	return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 		client: group.client,
@@ -650,36 +489,73 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 func (group *{{$node.GroupTypeName}}) Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName(ctx context.Context,
 	objToUpdate *{{$node.GroupBaseImport}}, status *{{$node.BaseImportName}}.{{$node.StatusType}}) (*{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, error) {
 	log.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Received objToUpdate:%s",objToUpdate.GetName())
-	// Make sure status field is present first
-	m := []byte("{\"status\":{}}")
-	result, err := group.client.baseClient.
-	{{$node.GroupTypeName}}().
-	{{$node.GroupResourceNameTitle}}().Patch(ctx, objToUpdate.GetName(), types.MergePatchType, m, metav1.PatchOptions{}, "status")
-	if err != nil {
-		return nil, err
+
+	gvr := schema.GroupVersionResource{
+		Group:    "{{$node.Group}}",
+		Version:  "v1",
+		Resource:  strings.ToLower("{{$node.GroupResourceNameTitle}}"),
 	}
 
-	patch := Patch{
-	PatchOp{
-		Op:    "replace",
-		Path:  "/status/{{$node.StatusNameFirstLower}}",
-		Value: status,
-		},
+	hashedName := objToUpdate.ObjectMeta.Name
+	obj := {{$node.GroupBaseImport}}{}
+	obj.Kind =  strings.ToLower("{{$node.GroupResourceNameTitle}}")
+	obj.APIVersion = "{{$node.Group}}/v1"
+	obj.ObjectMeta = objToUpdate.ObjectMeta
+	obj.Status.{{$node.StatusName}} = *status
+
+	var mapInterface map[string]interface{}
+	marshalledObj, _ := json.Marshal(&obj)
+	json.Unmarshal(marshalledObj, &mapInterface)
+
+	newCtx := context.TODO()
+	retryCount := 0
+	for {
+		_, err := group.client.dynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
+		if err == nil {
+			log.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node %s successful", hashedName)
+			break
+		}
+
+		log.Errorf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node: %s failed with error %v. Retrying...", hashedName, err)
+
+		updatedObj, err:= group.ForceRead{{$node.BaseNodeName}}ByName(newCtx, hashedName)
+		if err == nil {
+			obj.ObjectMeta = updatedObj.ObjectMeta
+			marshalledObj, _ := json.Marshal(&obj)
+			json.Unmarshal(marshalledObj, &mapInterface)
+		}
+
+		retryCount += 1
+		if retryCount == maxRetryCount1SecSleep {
+			log.Fatalf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Max retry exceeded for updating status for {{$node.BaseNodeName}} node: %s", hashedName)
+			return nil, err
+		}
+		time.Sleep(time.Second)
 	}
-	marshaled, err := patch.Marshal()
-	if err != nil {
-		return nil, err
+
+/*
+	if s, ok := subscriptionMap.Load("{{$node.CrdName}}"); ok {
+		resWrCache, inWrCache := s.(subscription).WriteCacheObjects.Load(hashedName)
+		var objectToWrite *{{$node.GroupBaseImport}}
+		if inWrCache {
+			objectToWrite = resWrCache.(*{{$node.GroupBaseImport}})
+			objectToWrite.Status.{{$node.StatusName}} = *status
+		} else {
+			// Object is not in write cache. Populate the write cache with last "known" object.
+			// TBD: Is this right ???
+			//      Can we expect ObjectToUpdate to the latest version of the object ?
+			//      What if we received the object spec but only want to update the status ?
+			//      Get on the object will return a object form cache if the cache has newer version.
+			// 		So proceeding with assumption that if newer version is available, user will get the newer version anyways.
+			objectToWrite = objToUpdate
+			objToUpdate.Status.{{$node.StatusName}} = *status
+		}
+		s.(subscription).WriteCacheObjects.Store(objToUpdate.GetName(), objectToWrite)
 	}
-	result, err = group.client.baseClient.
-	{{$node.GroupTypeName}}().
-	{{$node.GroupResourceNameTitle}}().Patch(ctx, objToUpdate.GetName(), types.JSONPatchType, marshaled, metav1.PatchOptions{}, "status")
-	if err != nil {
-		return nil, err
-	}
-	log.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Patch {{$node.GroupResourceNameTitle}} Success: %s",objToUpdate.GetName())
+*/
 	return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 		client: group.client,
-		{{$node.BaseNodeName}}: result,
+		{{$node.BaseNodeName}}: objToUpdate, // TBD: To be fixed to return back the "result"
 	}, nil
 }
 {{ end }}
@@ -767,11 +643,11 @@ func (group *{{$node.GroupTypeName}}) Update{{$node.BaseNodeName}}ByName(ctx con
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Patch(newCtx, objToUpdate.GetName(), types.JSONPatchType, marshaled, metav1.PatchOptions{}, "")
 		if err != nil {
-			log.Errorf("[Update{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} gvk in parent node[{{$node.Parent.GroupResourceNameTitle}}]: %+v",err)
+			log.Errorf("[Update{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} %s with error: %+v",objToUpdate.GetName(), err)
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
 				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToUpdate.GetName(),err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on patching gvk: %s",objToUpdate.GetName())
+					log.Errorf("Max retry exceed on patching: %s",objToUpdate.GetName())
 					log.Debugf("Trigger {{$node.BaseNodeName}} Delete: %s",objToUpdate.GetName())
 					delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToUpdate.GetName())
 					if delErr != nil {
@@ -799,6 +675,10 @@ func (group *{{$node.GroupTypeName}}) Update{{$node.BaseNodeName}}ByName(ctx con
 			}
 		} else {
 			log.Debugf("[Update{{$node.BaseNodeName}}ByName] Patch {{$node.BaseNodeName}} Success :%s",objToUpdate.GetName())
+			if s, ok := subscriptionMap.Load("{{$node.CrdName}}"); ok {
+				log.Debugf("[Update{{$node.BaseNodeName}}ByName] %s stored in wr-cache", objToUpdate.GetName())
+				s.(subscription).WriteCacheObjects.Store(objToUpdate.GetName(), result)
+			}
 			break
 		}
 	}
@@ -996,12 +876,50 @@ func (c *Clientset) Delete{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}(ct
 
 {{ range $key, $link := .Children }}
 {{ if $link.IsNamed }}
-// GetAll{{$link.FieldName}} returns all children of given type
+
+type {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}} struct {
+       client *Clientset
+       {{$link.FieldName}} []{{$node.BaseImportName}}.Child
+}
+
+func (n *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}}) Next(ctx context.Context) (*{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, error) {
+       for index, child := range n.{{$link.FieldName}} {
+               obj, err := n.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, child.Name)
+               if err == nil {
+                       if index == len(n.{{$link.FieldName}})-1 {
+                               n.{{$link.FieldName}} = nil
+                       } else {
+                               n.{{$link.FieldName}} = n.{{$link.FieldName}}[index+1:]
+                       }
+                       return obj, nil
+               } else if errors.IsNotFound(err) {
+                       continue
+               } else {
+                       return nil, err
+               }
+       }
+       return nil, nil
+}
+
+// GetAll{{$link.FieldName}}Iter returns an iterator for all children of given type
+func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetAll{{$link.FieldName}}Iter(ctx context.Context) (
+               result {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}}) {
+    result.client = obj.client
+	for _, v := range GetChildren("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}") {
+		result.{{$link.FieldName}} = append(result.{{$link.FieldName}}, {{$node.BaseImportName}}.Child{
+			Group: "{{$link.Group}}",
+			Kind: "{{$link.Kind}}",
+			Name: v,
+		})
+	}
+    return
+}
+
+// GetAll{{$link.FieldName}} returns all children of a given type
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetAll{{$link.FieldName}}(ctx context.Context) (
 		result []*{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
-	result = make([]*{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, 0, len(obj.Spec.{{$link.FieldName}}Gvk))
-	for _, v := range obj.Spec.{{$link.FieldName}}Gvk {
-		l, err := obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, v.Name)
+	for _, v := range GetChildren("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}") {
+		l, err := obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, v)
 		if err != nil {
 			return nil, err
 		}
@@ -1013,11 +931,18 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetAll{{$link.Fi
 // Get{{$link.FieldName}} returns child which has given displayName
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Get{{$link.FieldName}}(ctx context.Context,
 		displayName string) (result *{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
-	l, ok := obj.Spec.{{$link.FieldName}}Gvk[displayName]
-	if !ok {
+
+	parentLabels := make(map[string]string)
+	for k, v := range obj.Labels {
+		parentLabels[k] = v
+	}
+	parentLabels["{{$node.CrdName}}"] = obj.DisplayName()
+	childHashName := helper.GetHashedName("{{$link.CrdName}}", parentLabels, displayName)
+	if IsChildExists("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}", childHashName) == false {
 		return nil, NewChildNotFound(obj.DisplayName(), "{{$node.SimpleGroupTypeName}}.{{$node.BaseNodeName}}", "{{$link.FieldName}}", displayName)
 	}
-	result, err = obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, l.Name)
+
+	result, err = obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, childHashName)
 	return
 }
 
@@ -1025,10 +950,11 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Get{{$link.Field
 // Get{{$link.FieldName}} returns child of given type
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Get{{$link.FieldName}}(ctx context.Context) (
 		result *{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
-	if obj.Spec.{{$link.FieldName}}Gvk == nil {
-		return nil, NewChildNotFound(obj.DisplayName(), "{{$node.SimpleGroupTypeName}}.{{$node.BaseNodeName}}", "{{$link.FieldName}}")
+	children := GetChildren("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}")
+	if len(children) == 0 {
+			return nil, NewChildNotFound(obj.DisplayName(), "{{$node.SimpleGroupTypeName}}.{{$node.BaseNodeName}}", "{{$link.FieldName}}")
 	}
-	return obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, obj.Spec.{{$link.FieldName}}Gvk.Name)
+	return obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, children[0])
 }
 {{ end }}
 
@@ -1072,11 +998,18 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Add{{$link.Field
 {{ if $link.IsNamed }}
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.FieldName}}(ctx context.Context, displayName string) (err error) {
 	log.Debugf("[ Delete{{$link.FieldName}}] Received for {{$link.BaseNodeName}} object: %s to delete", displayName)
-	l, ok := obj.Spec.{{$link.FieldName}}Gvk[displayName]
-	if !ok {
+
+	parentLabels := make(map[string]string)
+	for k, v := range obj.Labels {
+		parentLabels[k] = v
+	}
+	parentLabels["{{$node.CrdName}}"] = obj.DisplayName()
+	childHashName := helper.GetHashedName("{{$link.CrdName}}", parentLabels, displayName)
+	if IsChildExists("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}", childHashName) == false {
 		return NewChildNotFound(obj.DisplayName(), "{{$node.SimpleGroupTypeName}}.{{$node.BaseNodeName}}", "{{$link.FieldName}}", displayName)
 	}
-	err = obj.client.{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, l.Name)
+
+	err = obj.client.{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, childHashName)
 	if err != nil {
 		return err
 	}
@@ -1089,13 +1022,19 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.Fi
 }
 {{ else}}
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.FieldName}}(ctx context.Context) (err error) {
-	if obj.Spec.{{$link.FieldName}}Gvk != nil {
+	children := GetChildren("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}")
+	if len(children) > 1 {
+		log.Panicf("[ Delete{{$link.FieldName}}] Cannot have more than 1 unnamed link for object %s. Current children %d", obj.GetName(), len(children))
+	}
+
+	if len(children) > 0 {
 		err = obj.client.
-		{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, obj.Spec.{{$link.FieldName}}Gvk.Name)
+		{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, children[0])
 		if err != nil {
 			return err
 		}
 	}
+
 	updatedObj, err := obj.client.
 	{{$node.SimpleGroupTypeName}}().Get{{$node.BaseNodeName}}ByName(ctx, obj.GetName())
 	if err == nil {
@@ -1219,6 +1158,10 @@ func (c *{{$node.GroupResourceType}}Chainer) Subscribe(){
 	if _, ok := subscriptionMap.Load(key); !ok {
 		informer := {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
 		subscribe(key, informer)
+		{{if .Parent.HasParent}}
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+		{{end}}
 	}
 }
 
@@ -1235,6 +1178,28 @@ func (c *{{$node.GroupResourceType}}Chainer) IsSubscribed() bool {
 	 _, ok := subscriptionMap.Load(key)
 	 return ok
 }
+
+{{if .Parent.HasParent}}
+func (c *{{$node.GroupResourceType}}Chainer) addCallback(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) {
+	parentDisplayName := helper.DEFAULT_KEY
+	if value, ok := obj.Labels["{{.Parent.CrdName}}"]; ok {
+		parentDisplayName = value
+	}
+	parentHashName := helper.GetHashedName("{{.Parent.CrdName}}", obj.Labels, parentDisplayName)
+
+	AddChild("{{.Parent.CrdName}}", parentHashName, "{{$node.CrdName}}", obj.Name)
+}
+
+func (c *{{$node.GroupResourceType}}Chainer) deleteCallback(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) {
+	parentDisplayName := helper.DEFAULT_KEY
+	if value, ok := obj.Labels["{{.Parent.CrdName}}"]; ok {
+		parentDisplayName = value
+	}
+	parentHashName := helper.GetHashedName("{{.Parent.CrdName}}", obj.Labels, parentDisplayName)
+
+	RemoveChild("{{.Parent.CrdName}}", parentHashName, "{{$node.CrdName}}", obj.Name)
+}
+{{end}}
 
 func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}), updateCB func(oldObj, newObj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}), deleteCB func(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}})) (cache.ResourceEventHandlerRegistration, error) {
 	fmt.Println("RegisterEventHandler for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
@@ -1261,7 +1226,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 			}
 			{{if .Parent.HasParent}}
 			var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-			gvkExist := false
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
@@ -1270,19 +1234,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 					continue
 				}
 				parent = p
-				// Check GVK
-				{{if .Parent.IsNamed}}
-				if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; !ok {
-					time.Sleep(500 * time.Millisecond)
-					continue
-				}
-				{{else}}
-				if parent.Spec.{{.Parent.GoGvkFieldName}} == nil {
-					time.Sleep(500 * time.Millisecond)
-					continue
-				}
-				{{end}}
-				gvkExist = true
 				break
 			}
 			if parent == nil {
@@ -1295,19 +1246,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 					panic("error occurred while fetching parent " + err.Error())
 				}
 				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-			}
-			if !gvkExist {
-				// Check GVK
-				{{if .Parent.IsNamed}}
-				if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; !ok {
-					return
-				}
-				{{else}}
-				if parent.Spec.{{.Parent.GoGvkFieldName}} == nil {
-					return
-				}
-				{{end}}
-				panic(fmt.Sprintf("gvk found (event loop is stalled) " + nc.DisplayName()))
 			}
 			{{end}}
 			addCB(nc)
@@ -1332,7 +1270,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 			}
 			{{if .Parent.HasParent}}
 			var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-			gvkExist := true
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
@@ -1341,19 +1278,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 					continue
 				}
 				parent = p
-				// Check GVK
-				{{if .Parent.IsNamed}}
-				if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; ok {
-					time.Sleep(500 * time.Millisecond)
-					continue
-				}
-				{{else}}
-				if parent.Spec.{{.Parent.GoGvkFieldName}} != nil {
-					time.Sleep(500 * time.Millisecond)
-					continue
-				}
-				{{end}}
-				gvkExist = false
 				break
 			}
 			if parent == nil {
@@ -1366,19 +1290,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 					panic("error occurred while fetching parent " + err.Error())
 				}
 				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-			}
-			if gvkExist {
-				// Check GVK
-				{{if .Parent.IsNamed}}
-				if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; ok {
-					return
-				}
-				{{else}}
-				if parent.Spec.{{.Parent.GoGvkFieldName}} != nil {
-					return
-				}
-				{{end}}
-				panic(fmt.Sprintf("gvk not found (event loop is stalled) " + nc.DisplayName()))
 			}
 			{{end}}
 			deleteCB(nc)
@@ -1407,7 +1318,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 
 				{{if .Parent.HasParent}}
 				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-				gvkExist := false
 				for i := 0; i < 600; i++ {
 					// Check if parent exists
 					p, err := nc.GetParent(context.TODO())
@@ -1416,22 +1326,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 						continue
 					}
 					parent = p
-
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; !ok {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} == nil {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{end}}
-
-					gvkExist = true
-
 					break
 				}
 
@@ -1446,20 +1340,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 						panic("error occurred while fetching parent " + err.Error())
 					}
 					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-				}
-
-				if !gvkExist {
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; !ok {
-						return
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} == nil {
-						return
-					}
-					{{end}}
-					panic(fmt.Sprintf("gvk found (event loop is stalled) " + nc.DisplayName()))
 				}
 				{{end}}
 
@@ -1478,7 +1358,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 
 				{{if .Parent.HasParent}}
 				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-				gvkExist := false
 				for i := 0; i < 600; i++ {
 					// Check if parent exists
 					p, err := nc.GetParent(context.TODO())
@@ -1487,22 +1366,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 						continue
 					}
 					parent = p
-
-					// Check GVK
-					{{if .Parent.IsNamed}}
-						if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; !ok {
-						time.Sleep(500 * time.Millisecond)
-					continue
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} == nil {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{end}}
-
-					gvkExist = true
-
 					break
 				}
 
@@ -1517,21 +1380,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 						panic("error occurred while fetching parent " + err.Error())
 					}
 					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-				}
-
-				if !gvkExist {
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; !ok {
-						return
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} == nil {
-						return
-					}
-					{{end}}
-
-					panic(fmt.Sprintf("gvk found (event loop is stalled) " + nc.DisplayName()))
 				}
 				{{end}}
 
@@ -1608,7 +1456,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 
 				{{if .Parent.HasParent}}
 				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-				gvkExist := true
 				for i := 0; i < 600; i++ {
 					// Check if parent exists
 					p, err := nc.GetParent(context.TODO())
@@ -1617,20 +1464,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 						continue
 					}
 					parent = p
-
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; ok {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} != nil {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{end}}
-					gvkExist = false
 					break
 				}
 
@@ -1645,20 +1478,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 						panic("error occurred while fetching parent " + err.Error())
 					}
 					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-				}
-
-				if gvkExist {
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; ok {
-						return
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} != nil {
-						return
-					}
-					{{end}}
-					panic(fmt.Sprintf("gvk not found (event loop is stalled) " + nc.DisplayName()))
 				}
 				{{end}}
 
@@ -1677,7 +1496,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 
 				{{if .Parent.HasParent}}
 				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-				gvkExist := true
 				for i := 0; i < 600; i++ {
 					// Check if parent exists
 					p, err := nc.GetParent(context.TODO())
@@ -1686,22 +1504,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 						continue
 					}
 					parent = p
-
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; ok {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{else}}
-						if parent.Spec.{{.Parent.GoGvkFieldName}} != nil {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					{{end}}
-
-					gvkExist = false
-
 					break
 				}
 
@@ -1716,20 +1518,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 						panic("error occurred while fetching parent " + err.Error())
 					}
 					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-				}
-
-				if gvkExist {
-					// Check GVK
-					{{if .Parent.IsNamed}}
-					if _, ok := parent.Spec.{{.Parent.GoGvkFieldName}}[nc.DisplayName()]; ok {
-						return
-					}
-					{{else}}
-					if parent.Spec.{{.Parent.GoGvkFieldName}} != nil {
-						return
-					}
-					{{end}}
-					panic(fmt.Sprintf("gvk not found (event loop is stalled) " + nc.DisplayName()))
 				}
 				{{end}}
 

@@ -95,7 +95,7 @@ DM_APIGW_PORT=8000 ./bin/eps-scheduler
 
 # In a terminal start the job requestor
 DM_APIGW_PORT=8000 ./bin/eps-job-requester
-```
+``
 
 This create a demo with a single worker node handling jobs. 
 The job requestor will start to backlog job request and the scheduler will schedule on the edge. 
@@ -114,6 +114,11 @@ or by running a script to launch them (This example show running edges 100 to 10
 ```
 cd $NEXUS_REPO_DIR/demo/edge-power-scheduler
 ./runsim 100 110 8000
+```
+or by grouping edges on a single process 
+```
+# Create a group of 10 edges running as one process
+EDGE_COUNT=10 EDGE_NAME="edge-g0" DM_APIGW_PORT=8000 ./bin/eps-edge-agent
 ```
 
 You can see the edges are dynamically added and the system starts to schedule to them.
@@ -143,6 +148,11 @@ k get jobs.jobscheduler.intel.com -l  nexus/display_name=job-1 -o yaml
 
 # edge status can be seen by running cli command
 k get edges.edge.intel.com -l nexus/display_name=edge-10 -o yaml
+
+# Watch the load
+k port-forward svc/nexus-k8s-proxy 8000:80
+watch -n 4 'kubectl  -s localhost:8082 get  schedulerconfigs.jobscheduler.intel.com -o yaml  | egrep "dges|job|total"'
+
 ```
 
 ## Setup for multi cluster simulation env.

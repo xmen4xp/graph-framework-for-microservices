@@ -6,12 +6,17 @@ import (
 	"api-gw/pkg/config"
 	"api-gw/pkg/model"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	labelSelector "k8s.io/apimachinery/pkg/labels"
 
@@ -31,6 +36,30 @@ func kubeSetupProxy(e *echo.Echo) *httputil.ReverseProxy {
 		log.Warnf("Could not parse proxy URL: %v", err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(proxyUrl)
+	if client.HostScheme == "https" {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(client.HostTLSClientConfig.CAData)
+		cert, err := tls.LoadX509KeyPair(client.HostTLSClientConfig.CertFile, client.HostTLSClientConfig.KeyFile)
+		if err != nil {
+			log.Warnf("Could not load client certficate: %y+v", err)
+		}
+		httpTransport := http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 10 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
+			TLSClientConfig: &tls.Config{
+				MinVersion:         tls.VersionTLS13,
+				MaxVersion:         tls.VersionTLS13,
+				RootCAs:            caCertPool,
+				Certificates:       []tls.Certificate{cert},
+				InsecureSkipVerify: true,
+			},
+		}
+		proxy.Transport = &httpTransport
+	}
 	proxy.ModifyResponse = UpdateProxyResponse
 	if common.IsModeAdmin() {
 		e.Any("/api/*", echo.WrapHandler(proxy))
@@ -111,9 +140,11 @@ func KubeGetHandler(c echo.Context) error {
 		Version:  "v1",
 		Resource: nc.Resource,
 	}
+	log.Debugf("KubeGetHandler: received GET rquest for %+v", gvr)
 
 	obj, err := client.Client.Resource(gvr).List(context.TODO(), opts)
 	if err != nil {
+		log.Debugf("KubeGetHandler: GetObject for %+v failed with error %+v", gvr, err)
 		if status := kerrors.APIStatus(nil); errors.As(err, &status) {
 			return c.JSON(int(status.Status().Code), status.Status())
 		}
@@ -168,6 +199,18 @@ func KubePostHandler(c echo.Context) error {
 
 		// Create object if is not found
 		if kerrors.IsNotFound(err) {
+
+			if len(crdInfo.ParentHierarchy) > 0 {
+				parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
+				parentCrd := model.CrdTypeToNodeInfo[parentCrdName]
+				if _, err := client.GetParent(parentCrdName, parentCrd, labels); err != nil {
+					log.Debugf("KubePostHandler: GetParent failed with error %+v", err)
+					if status := kerrors.APIStatus(nil); errors.As(err, &status) {
+						return c.String(int(status.Status().Code), fmt.Sprintf("parent object lookup failed with error: %v", status.Status()))
+					}
+				}
+			}
+
 			if _, ok := body.UnstructuredContent()["spec"]; !ok {
 				content := body.UnstructuredContent()
 				content["spec"] = map[string]interface{}{}
@@ -202,6 +245,11 @@ func KubePostHandler(c echo.Context) error {
 			return c.JSON(int(status.Status().Code), status.Status())
 		}
 		c.Error(err)
+	} else {
+		log.Debugf("KubePostHandler: GetObject for %+v name %s failed with error %+v", gvr, hashedName, err)
+		if status := kerrors.APIStatus(nil); errors.As(err, &status) {
+			return c.String(int(status.Status().Code), fmt.Sprintf("object lookup for %+v name %s failed with error: %v", gvr, hashedName, status.Status()))
+		}
 	}
 
 	body.SetResourceVersion(obj.GetResourceVersion())

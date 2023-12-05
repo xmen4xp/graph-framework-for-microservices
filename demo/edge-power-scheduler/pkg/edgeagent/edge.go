@@ -2,6 +2,7 @@ package edgeagent
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	nexus_client "powerschedulermodel/build/nexus-client"
 	"sync"
@@ -19,53 +20,73 @@ import (
 // The module show a periodic implementation and interaction with the data model with time based reconciler
 type EdgeAgent struct {
 	nexusClient           *nexus_client.Clientset
+	SiteName              string
 	EdgeName              string
 	AvailablePowerOptions [4]int32
 	AvailableCurrentPower int32
 	powerSwitchCnt        int32 // slot when available power will be switched
 	statusMutex           *sync.Mutex
 	log                   *logrus.Entry
+	inProgressJobs        sync.Map
 }
 
-func New(name string, nclient *nexus_client.Clientset) *EdgeAgent {
+type jobProgressInfo struct {
+	progress uint32
+}
+
+func New(siteName string, edgeName string, nclient *nexus_client.Clientset) *EdgeAgent {
 	pm := int32(1)
 	e := &EdgeAgent{nclient,
-		name,
+		siteName,
+		edgeName,
 		[4]int32{5 * pm, 10 * pm, 22 * pm, 37 * pm},
 		5,
 		0,
 		&sync.Mutex{},
 		logrus.WithFields(logrus.Fields{
-			"module": "edgeAgent",
-		})}
+			"module": edgeName,
+		}),
+		sync.Map{}}
 	return e
 }
 func (ea *EdgeAgent) getEdgeStatus(ctx context.Context) *nexus_client.EdgeEdge {
-	edge, e := ea.nexusClient.RootPowerScheduler().Inventory().GetEdges(ctx, ea.EdgeName)
+	site, e := ea.nexusClient.RootPowerScheduler().Inventory().GetSite(ctx, ea.SiteName)
+	if e != nil {
+		ea.log.Fatal(e)
+	}
+
+	edge, e := site.GetEdges(ctx, ea.EdgeName)
 	if e != nil {
 		ea.log.Fatal(e)
 	}
 	return edge
 }
 func (ea *EdgeAgent) setEdgeStatus(ctx context.Context, edge *nexus_client.EdgeEdge) {
-	if e := edge.SetState(ctx, &edge.Status.State); e != nil {
-		ea.log.Fatal("when setting edge status ", e)
-	}
+	// if e := edge.SetState(ctx, &edge.Status.State); e != nil {
+	// 	ea.log.Fatal("when setting edge status ", e)
+	// }
 }
 
 func (ea *EdgeAgent) updateJobStatus(ctx context.Context, job *nexus_client.JobmgmtJobInfo) error {
+	updateJobStatus := false
 	if job.Status.State.StartTime == 0 {
 		job.Status.State.StartTime = time.Now().Unix()
 		job.Status.State.Progress = 0
 		job.Status.State.EndTime = job.Status.State.StartTime
 		ea.log.Infof("Init Status on Job with %s powerRequested %d", job.DisplayName(), job.Spec.PowerNeeded)
-		ea.statusMutex.Lock()
-		defer ea.statusMutex.Unlock()
-		edge := ea.getEdgeStatus(ctx)
-		edge.Status.State.CurrentJob = job.DisplayName()
-		edge.Status.State.CurrentJobPercentCompleted = 0
-		edge.Status.State.CurrentJobPowerRequested = job.Spec.PowerNeeded
-		ea.setEdgeStatus(ctx, edge)
+
+		// Job is being initialized. Update the job status to capture start of job.
+		updateJobStatus = true
+
+		/*
+			 		ea.statusMutex.Lock()
+					defer ea.statusMutex.Unlock()
+					edge := ea.getEdgeStatus(ctx)
+					edge.Status.State.CurrentJob = job.DisplayName()
+					edge.Status.State.CurrentJobPercentCompleted = 0
+					edge.Status.State.CurrentJobPowerRequested = job.Spec.PowerNeeded
+					ea.setEdgeStatus(ctx, edge)
+		*/
 	} else {
 		var remainingPower int32 = int32(1.0 * job.Spec.PowerNeeded * (100.0 - job.Status.State.Progress) / 100.0)
 		curTime := time.Now().Unix()
@@ -75,30 +96,48 @@ func (ea *EdgeAgent) updateJobStatus(ctx context.Context, job *nexus_client.Jobm
 			job.Status.State.Progress = 100
 			job.Status.State.EndTime = curTime
 			ea.log.Infof("Completing the job id %s with requested power %d", job.DisplayName(), job.Spec.PowerNeeded)
-			ea.statusMutex.Lock()
-			defer ea.statusMutex.Unlock()
-			edge := ea.getEdgeStatus(ctx)
-			edge.Status.State.TotalJobsProcessed += 1
-			edge.Status.State.TotalPowerServed += job.Spec.PowerNeeded
-			edge.Status.State.CurrentJob = ""
-			edge.Status.State.CurrentJobPercentCompleted = 0
-			edge.Status.State.CurrentJobPowerRequested = 0
-			ea.setEdgeStatus(ctx, edge)
+
+			// Job has completed. Update the job status to capture end of job.
+			updateJobStatus = true
+
+			/* 			ea.statusMutex.Lock()
+			   			defer ea.statusMutex.Unlock()
+			   			edge := ea.getEdgeStatus(ctx)
+			   			edge.Status.State.TotalJobsProcessed += 1
+			   			edge.Status.State.TotalPowerServed += job.Spec.PowerNeeded
+			   			edge.Status.State.CurrentJob = ""
+			   			edge.Status.State.CurrentJobPercentCompleted = 0
+			   			edge.Status.State.CurrentJobPowerRequested = 0
+			   			ea.setEdgeStatus(ctx, edge) */
 		} else {
 			p := 1.0 * (job.Spec.PowerNeeded - uint32(remainingPower)) * 100.0 / job.Spec.PowerNeeded
 			job.Status.State.Progress = p
 			job.Status.State.EndTime = curTime
 			ea.log.Infof("Updating the job id %s Progress %d pn %d rp %d available %d elaps %d", job.DisplayName(), p,
 				job.Spec.PowerNeeded, remainingPower, ea.AvailableCurrentPower, elapsed)
-			ea.statusMutex.Lock()
-			defer ea.statusMutex.Unlock()
-			edge := ea.getEdgeStatus(ctx)
-			edge.Status.State.CurrentJob = job.DisplayName()
-			edge.Status.State.CurrentJobPercentCompleted = p
-			ea.setEdgeStatus(ctx, edge)
+			/* 			ea.statusMutex.Lock()
+			   			defer ea.statusMutex.Unlock()
+			   			edge := ea.getEdgeStatus(ctx)
+			   			edge.Status.State.CurrentJob = job.DisplayName()
+			   			edge.Status.State.CurrentJobPercentCompleted = p
+			   			ea.setEdgeStatus(ctx, edge) */
 		}
 	}
-	return job.SetState(ctx, &job.Status.State)
+
+	if updateJobStatus == true {
+		if err := job.SetState(ctx, &job.Status.State); err != nil {
+			log.Fatalf("Updating status of job %s failed with error %v", job.DisplayName(), err)
+		}
+	}
+
+	if job.Status.State.Progress == 100 {
+		// Job has finished. There is no need to track it in-memory.
+		ea.inProgressJobs.Delete(job.DisplayName())
+	} else {
+		// Job is in progress. Track progress in-memory.
+		ea.inProgressJobs.Store(job.DisplayName(), jobProgressInfo{progress: job.Status.State.Progress})
+	}
+	return nil
 }
 
 func (ea *EdgeAgent) JobPeriodicReconciler(ctx context.Context) {
@@ -108,9 +147,17 @@ func (ea *EdgeAgent) JobPeriodicReconciler(ctx context.Context) {
 	} else {
 		ea.powerSwitchCnt--
 	}
-	dcfg := ea.nexusClient.RootPowerScheduler().DesiredEdgeConfig()
+	dcfg := ea.nexusClient.RootPowerScheduler().DesiredSiteConfig()
 
-	edc, e := dcfg.GetEdgesDC(ctx, ea.EdgeName)
+	sdc, e := dcfg.GetSitesDC(ctx, ea.SiteName)
+	if nexus_client.IsNotFound(e) {
+		// no requests yet so nothing to do
+		return
+	} else if e != nil {
+		ea.log.Error("Error on getting SiteDC", e)
+		return
+	}
+	edc, e := sdc.GetEdgesDC(ctx, ea.EdgeName)
 	if nexus_client.IsNotFound(e) {
 		// no requests yet so nothing to do
 		return
@@ -118,17 +165,15 @@ func (ea *EdgeAgent) JobPeriodicReconciler(ctx context.Context) {
 		ea.log.Error("Error on getting EdgeDC", e)
 		return
 	}
-	jobInfo, e := edc.GetAllJobsInfo(ctx)
-	if e != nil {
-		ea.log.Error("Error getting JobInfo", e)
-		return
-	}
+	jobInfo := edc.GetAllJobsInfoIter(ctx)
 	foundOneJob := false
-	for _, job := range jobInfo {
+	for job, _ := jobInfo.Next(ctx); job != nil; job, _ = jobInfo.Next(ctx) {
 		if job.Status.State.Progress == 100 {
 			continue
 		}
 		foundOneJob = true
+		// starting a goroutine for a job would be there can be multiple jobs running at one time.
+		// but the edge agent status is capable of being updated with onely one job info.
 		go func(j *nexus_client.JobmgmtJobInfo) {
 			if e := ea.updateJobStatus(ctx, j); e != nil {
 				ea.log.Error("Updating job", e)
@@ -141,8 +186,13 @@ func (ea *EdgeAgent) JobPeriodicReconciler(ctx context.Context) {
 
 }
 func (ea *EdgeAgent) Start(gctx context.Context) error {
-	// ea.nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC(ea.EdgeName).JobsInfo("*").Subscribe()
-	tickerJob := time.NewTicker(10 * time.Second)
+	// ea.nexusClient.RootPowerScheduler().Inventory().Subscribe()
+	// ea.nexusClient.RootPowerScheduler().DesiredEdgeConfig().Subscribe()
+	// ea.nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").Subscribe()
+	// ea.nexusClient.RootPowerScheduler().DesiredEdgeConfig().EdgesDC("*").JobsInfo("*").Subscribe()
+	// ea.nexusClient.RootPowerScheduler().Inventory().Edges("*").Subscribe()
+	ea.log.Infof("Starting Site:%s Edge:%s", ea.SiteName, ea.EdgeName)
+	tickerJob := time.NewTicker(60 * time.Second)
 	for {
 		select {
 		case <-tickerJob.C:

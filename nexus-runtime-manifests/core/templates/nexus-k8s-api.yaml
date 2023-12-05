@@ -1,0 +1,81 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nexus-k8scert-secret-permission
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - "secrets"
+  verbs:
+  - get
+  - watch
+  - list
+  - create
+  - delete
+  - patch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nexus-k8scerts-service-account
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nexus-k8scert-create-secret-rbac
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+subjects:
+- kind: ServiceAccount
+  name: nexus-k8scerts-service-account
+roleRef:
+  kind: Role
+  name: nexus-k8scert-secret-permission
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nexus-k8scert-creation-job
+  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
+  annotations:
+    {{- template "argoJobHook" .}}
+spec:
+  template:
+    metadata:
+      annotations:
+        "sidecar.istio.io/inject": "false"
+    spec:
+      serviceAccountName: nexus-k8scerts-service-account
+      {{- if eq .Values.global.tainted true }}
+      {{- template "tolerations" .}}
+      {{- end }}
+      containers:
+      - name: k8scert-creation
+        image: "{{.Values.global.registry}}/debugtools:latest"
+        imagePullPolicy: IfNotPresent
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          set -e
+          openssl rand -out /root/.rnd -hex 256
+          openssl genrsa -out /tmp/ca.key 2048
+          openssl req -x509 -new -nodes -key /tmp/ca.key -subj "/CN=nexus-apiserver" -days 10000 -out /tmp/ca.crt
+          if kubectl get secret nexus-customapi-ca -n $KUBERNETES_POD_NAMESPACE 1>&2>/dev/null; then \
+            echo "Skipping Secret ${secret} creation on $KUBERNETES_POD_NAMESPACE as it already exists"
+            exit 0
+          else
+            kubectl create secret generic nexus-customapi-ca --from-file=/tmp/ca.key --from-file=/tmp/ca.crt -n $KUBERNETES_POD_NAMESPACE --dry-run -o yaml | kubectl apply -f -
+          fi
+        env:
+          - name: KUBERNETES_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+      restartPolicy: Never
+  backoffLimit: 4

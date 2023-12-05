@@ -1,10 +1,10 @@
-package jobscheduler
+package jobgroup
 
 import (
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus"
 )
 
-var JOBRequesterAPI = nexus.RestAPISpec{
+var JOBSchedulerAPI = nexus.RestAPISpec{
 	Uris: []nexus.RestURIs{
 		{
 			Uri:     "/v1alpha1/schedular",
@@ -13,8 +13,8 @@ var JOBRequesterAPI = nexus.RestAPISpec{
 	},
 }
 
-// nex us-rest-api-gen:JOBRequesterAPI
 // nexus-description: Job request api's
+// nexus-rest-api-gen:JOBSchedulerAPI
 type SchedulerConfig struct {
 	nexus.SingletonNode
 	State JobSchedulerStatus `nexus:"status"`
@@ -28,6 +28,7 @@ type JobSchedulerStatus struct {
 	FreeEdges         uint32
 	JobRate1Min       uint32
 	JobRate10Sec      uint32
+	BusyEdgesPerSite  map[string]uint32
 }
 
 type ExectuedJobStats struct {
