@@ -36,12 +36,10 @@ build: build.darwin build.linux
 
 .PHONY: build.darwin
 build.darwin:
-	@if [ "$(UNAME)" = "Darwin" ]; then\
-		GOOS=darwin GOARCH=amd64 go build -buildvcs=false --ldflags "$(GO_LDFLAGS)" ./cmd/plugin/nexus;\
-		mv nexus $(ARTIFACTS_PATH)/nexus-darwin_amd64;\
-		echo "Build successful. Binary: $(ARTIFACTS_PATH)/nexus-darwin_amd64";\
-		echo "Run: make install to update install/existing binary in /usr/local/bin";\
-	fi
+	GOOS=darwin GOARCH=amd64 go build -buildvcs=false --ldflags "$(GO_LDFLAGS)" ./cmd/plugin/nexus;\
+	mv nexus $(ARTIFACTS_PATH)/nexus-darwin_amd64;\
+	echo "Build successful. Binary: $(ARTIFACTS_PATH)/nexus-darwin_amd64";\
+	echo "Run: make install to update install/existing binary in /usr/local/bin";\
 
 .PHONY: build.linux
 build.linux:

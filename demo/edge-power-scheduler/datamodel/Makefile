@@ -142,7 +142,7 @@ dm.install:
 		--mount type=bind,source=$(realpath .)/datamodel_installer.sh,target=/datamodel_installer.sh,readonly \
 		--entrypoint /datamodel_installer.sh \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
-		-e NAME=${DATAMODEL_NAME} \
+		-e NAME=${DATAMODEL_GROUP_NAME} \
 		-e IMAGE=${DATAMODEL_DOCKER_REPO} \
 		bitnami/kubectl
 
