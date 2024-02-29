@@ -123,14 +123,14 @@ func DeleteObject(gvr schema.GroupVersionResource, crdType string, crdInfo model
 		}
 	}
 
-	if len(crdInfo.ParentHierarchy) > 0 {
-		parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
-		parentCrdInfo := model.CrdTypeToNodeInfo[parentCrdName]
-		err = UpdateParentWithRemovedChild(parentCrdName, parentCrdInfo, obj.GetLabels(), crdType, labels["nexus/display_name"])
-		if err != nil {
-			return err
-		}
-	}
+	// if len(crdInfo.ParentHierarchy) > 0 {
+	//	parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
+	//	parentCrdInfo := model.CrdTypeToNodeInfo[parentCrdName]
+	//	err = UpdateParentWithRemovedChild(parentCrdName, parentCrdInfo, obj.GetLabels(), crdType, labels["nexus/display_name"])
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	// Delete object
 	err = Client.Resource(gvr).Delete(context.TODO(), hashedName, metav1.DeleteOptions{})

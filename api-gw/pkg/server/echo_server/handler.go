@@ -374,11 +374,11 @@ func putHandler(c echo.Context) error {
 			}
 
 			// Update parent
-			if len(crdInfo.ParentHierarchy) > 0 {
-				parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
-				parentCrd := model.CrdTypeToNodeInfo[parentCrdName]
-				err = client.UpdateParentWithAddedChild(parentCrdName, parentCrd, labels, crdInfo, crdName, name, hashedName)
-			}
+			// if len(crdInfo.ParentHierarchy) > 0 {
+			//	parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
+			//	parentCrd := model.CrdTypeToNodeInfo[parentCrdName]
+			//	err = client.UpdateParentWithAddedChild(parentCrdName, parentCrd, labels, crdInfo, crdName, name, hashedName)
+			//}
 
 			if err == nil {
 				return c.JSON(http.StatusOK, DefaultResponse{Message: name})

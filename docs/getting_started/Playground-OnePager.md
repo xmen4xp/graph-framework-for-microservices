@@ -224,55 +224,178 @@ CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.kind.kubeconfig.export
 make dm.install
 ```
 
-## 7 Access your API's
+## 7 Let's write our business logic
 
-[Nexus Runtime based on K0s](#Nexus-Runtime-based-on-K0s)
+The business logic is quite simple: initiate shipping for an order, when the order is placed.
 
-[Nexus Runtime based on KIND](#Nexus-Runtime-based-on-KIND)
-
-### Nexus Runtime based on K0s
-
-#### Kubectl API Access
-
-Lets instantiate sock shop by creating the SockShop node, via kubectl.
-
+### Step 7.1 Go to top workdir
 ```
-kubectl -s localhost:8082 apply -f - <<EOF
-apiVersion: root.sockshop.com/v1
-kind: SockShop
-metadata:
-  name: default
-spec:
-  orgName: Unicorn
-  location: Seattle
-  website: Unicorn.inc
-EOF
+cd ..
 ```
 
-#### REST API is available [here](http://localhost:8082/sockshop.com/docs#/)
-
-![RESTAPI](../images/Playground-11-Nexus-API-1.png)
-
-### Nexus Runtime based on KIND
-
-#### Kubectl API Access
-
-Lets instantiate sock shop by creating the SockShop node, via kubectl.
-
-***NOTE: Replace \<PORT> with CLUSTER_PORT used when creating runtime.***
+### Step 7.2 Copy paste this code to file: main.go
 
 ```
-kubectl -s localhost:<PORT> apply -f - <<EOF
-apiVersion: root.sockshop.com/v1
-kind: SockShop
-metadata:
-  name: default
-spec:
-  orgName: Unicorn
-  location: Seattle
-  website: Unicorn.inc
-EOF
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"math/rand"
+	"os"
+	"os/signal"
+	sockshopv1 "sockshop/build/apis/root.sockshop.com/v1"
+	nexus_client "sockshop/build/nexus-client"
+	"syscall"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+)
+
+func generateTrackingId() int {
+	return rand.Intn(10000-1) + 1
+}
+
+func ProcessOrder(order *nexus_client.RootOrders) {
+
+	// Check if the Order has a Shipping object associated with it, already.
+	shipping, err := order.GetShipping(context.TODO())
+
+	if nexus_client.IsLinkNotFound(err) {
+
+		// No shipping object was found associated with this order.
+
+		fmt.Printf("Hurray...Order %v received!\n", order.DisplayName())
+
+		// Construct a Shipping object.
+		shippingObj := &sockshopv1.Shipping{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: order.DisplayName(),
+			},
+			Spec: sockshopv1.ShippingSpec{
+				TrackingId: generateTrackingId(),
+			},
+		}
+
+		// Create a shipping object.
+		shippingInfo, _ := nexusClient.RootSockShop().AddShippingLedger(context.TODO(), shippingObj)
+
+		// Associate the shipping object to the Order.
+		order.LinkShipping(context.TODO(), shippingInfo)
+
+		fmt.Printf("Order %v shipped to %v! Tracking Id: %v\n", order.DisplayName(), order.Spec.Address, shippingInfo.Spec.TrackingId)
+	} else {
+
+		// A shipping object was found associated with this order, already. Nothing to be done.
+
+		fmt.Printf("Order %v has been shipped. Tracking Id: %v\n", order.DisplayName(), shipping.Spec.TrackingId)
+	}
+}
+
+var nexusClient *nexus_client.Clientset
+
+func main() {
+
+	rand.Seed(time.Now().UnixNano())
+	var kubeconfig string
+	flag.StringVar(&kubeconfig, "k", "", "Absolute path to the kubeconfig file. Defaults to ~/.kube/config.")
+	flag.Parse()
+
+	var config *rest.Config
+	if len(kubeconfig) != 0 {
+		var err error
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		config = &rest.Config{Host: "localhost:8081"}
+	}
+
+	nexusClient, _ = nexus_client.NewForConfig(config)
+
+	nexusClient.RootSockShop().PO("*").RegisterAddCallback(ProcessOrder)
+
+	nexusClient.AddRootSockShop(context.TODO(), &sockshopv1.SockShop{
+		Spec: sockshopv1.SockShopSpec{
+			OrgName:  "Unicorn",
+			Location: "Seattle",
+			Website:  "website.com",
+		},
+	})
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	done := make(chan bool, 1)
+
+	go func() {
+		<-sigs
+		done <- true
+	}()
+	<-done
+	fmt.Println("exiting")
+}
 ```
 
-#### REST API is available: `http://localhost:<PORT+1>/sockshop.com/docs#/`
+## Step 7.3 Let's run the Application
 
+```
+go mod tidy; go run main.go -k $HOST_KUBECONFIG
+```
+
+Our application is now production ready !!!
+
+## 8 Let's test our application
+
+Nexus Runtime based on K0s:  REST API is available [here](http://localhost:8082/sockshop.com/docs#/)
+
+Nexus Runtime based on KIND: REST API is available: `http://localhost:<PORT+1>/sockshop.com/docs#/`
+
+### 8.1 Add a Socks to our inventory. We gotta sell something right !
+
+```
+HTTP Method: PUT
+
+URI: /sock/{root.Socks}
+
+Name of the root.Socks node: Polo
+
+Spec:
+{
+  "brand": "polo,inc",
+  "color": "white",
+  "size": 9
+}
+```
+
+### 8.2 Let's place an Order for a Socks through REST API
+
+Place an Order.
+
+```
+HTTP Method: PUT
+
+URI: /order/{root.Orders}
+
+Name of the root.Orders node: MyFirstOrder
+
+Spec:
+
+{
+  "address": "SFO",
+  "sockName": "polo"
+}
+```
+
+## 9.3 Application will be notified of new order and will create a shipping request.
+
+```
+➜ go run main.go -k $HOST_KUBECONFIG
+RootOrders -->  RegisterAddCallback!
+[RootOrders] ---NEW-INFORMER---->
+
+Hurray...Order MyFirstOrder received!
+Order MyFirstOrder shipped to SFO! Tracking Id: 9815
+```

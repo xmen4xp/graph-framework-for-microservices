@@ -185,7 +185,7 @@ func KubePostHandler(c echo.Context) error {
 		return err
 	}
 
-	body, labels, hashedName, displayName := processBody(body, nc, crdInfo)
+	body, labels, hashedName, _ := processBody(body, nc, crdInfo)
 
 	gvr := schema.GroupVersionResource{
 		Group:    nc.GroupName,
@@ -224,19 +224,19 @@ func KubePostHandler(c echo.Context) error {
 				c.Error(err)
 			}
 
-			var err error
-			if len(crdInfo.ParentHierarchy) > 0 {
-				parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
-				parentCrd := model.CrdTypeToNodeInfo[parentCrdName]
-				err = client.UpdateParentWithAddedChild(parentCrdName, parentCrd, labels, crdInfo, nc.CrdType, displayName, hashedName)
-			}
+			// var err error
+			//if len(crdInfo.ParentHierarchy) > 0 {
+			//	parentCrdName := crdInfo.ParentHierarchy[len(crdInfo.ParentHierarchy)-1]
+			//	parentCrd := model.CrdTypeToNodeInfo[parentCrdName]
+			//	err = client.UpdateParentWithAddedChild(parentCrdName, parentCrd, labels, crdInfo, nc.CrdType, displayName, hashedName)
+			//}
 
-			if err != nil {
-				if status := kerrors.APIStatus(nil); errors.As(err, &status) {
-					return c.JSON(int(status.Status().Code), status.Status())
-				}
-				c.Error(err)
-			}
+			//if err != nil {
+			//	if status := kerrors.APIStatus(nil); errors.As(err, &status) {
+			//		return c.JSON(int(status.Status().Code), status.Status())
+			//	}
+			//	c.Error(err)
+			//}
 
 			return c.JSON(201, obj)
 		}
