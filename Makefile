@@ -14,8 +14,9 @@ TAG ?= $(shell cat TAG | awk '{ print $1 }')
 K8S_RUNTIME_PORT = $(shell echo $$(( ${CLUSTER_PORT} + 1 )))
 LOG_LEVEL ?= ERROR
 CONTAINER_REGISTRY_DOMAIN ?= 822995803632.dkr.ecr.us-west-2.amazonaws.com
-GOOS ?= $(shell go env GOOS)
-GOARCH ?= $(shell go env GOARCH)
+OS ?= $(shell go env GOOS)
+ARCH ?= $(shell go env GOARCH)
+DOCKER_BUILDER_PLATFORM ?= linux/${ARCH}
 
 .PHONY: check.prereq.git
 check.prereq.git:
@@ -97,8 +98,8 @@ api-gw.docker:
 		--volume $(realpath .):${DOCKER_BUILD_MOUNT_DIR} \
 		-w ${DOCKER_BUILD_MOUNT_DIR}/${API_GW_COMPONENT_NAME} \
 		golang:1.19.8 \
-		/bin/bash -c "go mod download && GOOS=${GOOS} GOARCH=${GOARCH} go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME}";
-	docker build -t ${API_GW_COMPONENT_NAME}:${TAG} -f api-gw/Dockerfile .
+		/bin/bash -c "go mod download && GOOS=${OS} GOARCH=${ARCH} go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME}";
+	docker build --platform ${DOCKER_BUILDER_PLATFORM} -t ${API_GW_COMPONENT_NAME}:${TAG} -f api-gw/Dockerfile .
 
 .PHONY: k0s.install
 k0s.install:
