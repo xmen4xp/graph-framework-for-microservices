@@ -362,3 +362,26 @@ demo.uninstall.kubeconfig:
 	helm uninstall -n ${NAMESPACE}  epm-app | true
 	kubectl delete -n ${NAMESPACE} pvc data-nexus-etcd-0
 	kubectl delete -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+.PHONY: trafic.demo.install.kubeconfig
+traffic.demo.install.kubeconfig:
+ifndef TAG
+	$(error TAG is mandatory)
+endif
+ifndef CONTAINER_REGISTRY_DOMAIN
+	$(error CONTAINER_REGISTRY_DOMAIN is mandatory)
+endif
+	cd nexus-runtime-manifests/helm-charts/core; helm install core -n ${NAMESPACE} --set imageTag=${TAG} --set global.resources.kubeapiserver.cpu=6 --set global.tainted=true --set imageRegistry=${CONTAINER_REGISTRY_DOMAIN} .
+	cd api; make dm.install.helm
+	cd demo/traffic-lights/datamodel; make dm.install.helm
+	cd demo/traffic-lights/helm-chart; helm install trafficlightapp --set imageTag=${TAG} --set global.tainted=true --set imageRegistry=${CONTAINER_REGISTRY_DOMAIN} --namespace ${NAMESPACE}  .
+	kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+.PHONY: traffic.demo.uninstall.kubeconfig
+traffic.demo.uninstall.kubeconfig:
+	helm uninstall -n ${NAMESPACE} core | true
+	helm uninstall -n ${NAMESPACE} api | true
+	helm uninstall -n ${NAMESPACE} trafficlight | true
+	helm uninstall -n ${NAMESPACE}  trafficlightapp | true
+	kubectl delete -n ${NAMESPACE} pvc data-nexus-etcd-0
+	kubectl delete -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml

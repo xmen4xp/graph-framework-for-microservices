@@ -144,6 +144,10 @@ spec:
               value: "yes"
             - name: ETCD_AUTH_TOKEN
               value: "simple"
+            - name: ETCD_AUTO_COMPACTION_MODE
+              value: revision
+            - name: ETCD_AUTO_COMPACTION_RETENTION
+              value: "15000"
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:

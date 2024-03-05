@@ -1,0 +1,84 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: light-connector
+  namespace: {{ default  .Release.Namespace .Values.namespace }}
+  labels:
+    app: light-connector
+spec:
+  clusterIP: None
+  type: ClusterIP
+  publishNotReadyAddresses: true
+  ports:
+    - port: 8080
+      name: tcp
+      targetPort: node
+  selector:
+    app: light-connector
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: light-connector
+  namespace: {{ default  .Release.Namespace .Values.namespace }}
+  labels:
+    app: light-connector
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: light-connector
+  serviceName: light-connector
+  template:
+    metadata:
+      labels:
+        app: light-connector
+    spec:
+      {{- if eq .Values.global.tainted true }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: traffic-light
+                operator: In
+                values:
+                - connector
+      tolerations:
+      - key: traffic-light
+        operator: Equal
+        value: connector
+      {{- end }}
+      containers:
+      - name: light-connector
+{{- if ne .Values.imageRegistry "" }}
+        image: "{{.Values.imageRegistry}}/traffic-light:{{ .Values.imageTag }}"
+{{- else }}
+        image: "traffic-light:{{ .Values.imageTag }}"
+{{- end }}
+        command:
+        - /bin/light-connector
+        - -k
+        - /etc/config/kubeconfig/kubeconfig
+        imagePullPolicy: Always
+        resources:
+          requests:
+            cpu: "200m"
+        env:
+        - name: KUBECONFIG
+          value: /etc/config/kubeconfig/kubeconfig
+        - name: NUM_LIGHTS 
+          value: "200"
+        - name: LOG_LEVEL
+          value: DEBUG
+        volumeMounts:
+        - name: nexus-k8s-apiserver-kubeconfig
+          mountPath: "/etc/config/kubeconfig"
+          readOnly: true
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+      - name: nexus-k8s-apiserver-kubeconfig
+        secret:
+            secretName: nexus-k8s-apiserver-kubeconfig
