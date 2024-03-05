@@ -21,6 +21,7 @@ https://user-images.githubusercontent.com/49454273/236900473-216421d5-c9da-456c-
 ## [Intel Developement Setup (Pre-Requisite)](docs/getting_started/Setup.md)
 ## [Playground Lite](docs/getting_started/Playground-Lite.md)
 ## [Playground TL;DR](docs/getting_started/Playground-OnePager.md)
+## [Playground Nexus Scale / Edge Power Scheduler](docs/getting_started/Playground-Scale.md)
 
 <br>
 
