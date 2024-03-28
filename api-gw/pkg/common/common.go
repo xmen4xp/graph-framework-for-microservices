@@ -11,14 +11,16 @@ import (
 	"sync"
 	"time"
 
+	userv1 "nexus/admin/api/build/apis/user.admin.nexus.com/v1"
+	"nexus/admin/api/build/common"
+
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/gommon/log"
-	userv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/user.nexus.vmware.com/v1"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/build/common"
 
-	tenant_config_v1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
-	tenant_runtime_v1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantruntime.nexus.vmware.com/v1"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
+	tenant_config_v1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+	tenant_runtime_v1 "nexus/admin/api/build/apis/tenantruntime.admin.nexus.com/v1"
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/strings/slices"
 )

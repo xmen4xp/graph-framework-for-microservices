@@ -1,7 +1,7 @@
 package authentication
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
+	"nexus/base/nexus"
 )
 
 // IDPConfig contains the properties of an OIDC app

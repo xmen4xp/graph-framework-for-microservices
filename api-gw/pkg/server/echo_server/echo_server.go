@@ -35,8 +35,8 @@ import (
 	"api-gw/pkg/model"
 	"api-gw/pkg/utils"
 
-	userv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/user.nexus.vmware.com/v1"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
+	userv1 "nexus/admin/api/build/apis/user.admin.nexus.com/v1"
+	nexus_client "nexus/admin/api/build/nexus-client"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
 )

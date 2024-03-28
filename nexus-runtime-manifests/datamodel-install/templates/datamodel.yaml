@@ -3,11 +3,11 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
-  name: datamodels.nexus.vmware.com
+  name: datamodels.nexus.com
 spec:
   conversion:
     strategy: None
-  group: nexus.vmware.com
+  group: nexus.com
   names:
     kind: Datamodel
     listKind: DatamodelList

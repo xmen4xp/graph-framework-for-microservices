@@ -38,13 +38,13 @@ Nexus Route object is a declarative API through which custom routes can be confi
 1. Create the about Route object
 ```
 cat <<EOF | kubectl -s localhost:8080 apply -f -
-apiVersion: route.nexus.vmware.com/v1
+apiVersion: route.admin.nexus.com/v1
 kind: Route
 metadata:
   name: test                # name of the route object. Use any name that makes sense to you.
   labels:
-    nexuses.api.nexus.vmware.com: default
-    configs.config.nexus.vmware.com: default
+    nexuses.api.admin.nexus.com: default
+    configs.config.admin.nexus.com: default
 spec:
   uri: /                    # The URI prefix that will be served by the backend microservice
   service:

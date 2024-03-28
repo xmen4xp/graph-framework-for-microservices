@@ -8,12 +8,14 @@ import (
 	"strings"
 	"time"
 
-	authnexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/authentication.nexus.vmware.com/v1"
+	authnexusv1 "nexus/admin/api/build/apis/authentication.admin.nexus.com/v1"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	middlewarenexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/domain.nexus.vmware.com/v1"
-	tenantv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
+	middlewarenexusv1 "nexus/admin/api/build/apis/domain.admin.nexus.com/v1"
+	tenantv1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
 )
 

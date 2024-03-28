@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	nxcontroller "gitlab.eng.vmware.com/nexus/controller/controllers"
-	nexusv1 "golang-appnet.eng.vmware.com/nexus-sdk/api/build/apis/connect.nexus.vmware.com/v1"
+	nexusv1 "golang-appnet.eng.vmware.com/nexus-sdk/api/build/apis/connect.admin.nexus.com/v1"
 	nexus_client "golang-appnet.eng.vmware.com/nexus-sdk/api/build/nexus-client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

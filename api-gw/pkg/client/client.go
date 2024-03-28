@@ -9,8 +9,9 @@ import (
 	"os"
 	"strings"
 
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	log "github.com/sirupsen/logrus"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/common-library/pkg/nexus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

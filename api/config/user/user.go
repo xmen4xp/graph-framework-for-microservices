@@ -1,8 +1,9 @@
 package user
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
-	tenantconfig "github.com/vmware-tanzu/graph-framework-for-microservices/api/config/tenant"
+	tenantconfig "nexus/admin/api/config/tenant"
+
+	"nexus/base/nexus"
 )
 
 type User struct {

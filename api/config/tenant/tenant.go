@@ -1,9 +1,9 @@
 package tenantconfig
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
+	"nexus/base/nexus"
 
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/common"
+	"nexus/admin/api/common"
 )
 
 type Label struct {

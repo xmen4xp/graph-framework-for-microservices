@@ -6,7 +6,7 @@ import (
 	"api-gw/pkg/utils"
 	"os"
 
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
+	nexus_client "nexus/admin/api/build/nexus-client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,8 +15,8 @@ import (
 var _ = Describe("Common tests", func() {
 
 	It("should get correct datamodel name from crd", func() {
-		datamodelName := utils.GetDatamodelName("route.route.nexus.vmware.com")
-		Expect(datamodelName).To(Equal("nexus.vmware.com"))
+		datamodelName := utils.GetDatamodelName("route.route.admin.nexus.com")
+		Expect(datamodelName).To(Equal("admin.nexus.com"))
 	})
 
 	It("should check if file exist", func() {

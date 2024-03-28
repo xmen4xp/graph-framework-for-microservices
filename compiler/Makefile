@@ -29,6 +29,8 @@ PREPARSER_MODPATH ?= model
 NEXUS_KUBEOPENAPI_VERSION ?= 7416bd4754d3c0dd8b3fa37fff53d36594f11607
 NEXUS_GRAPHQLGEN_VERSION ?= 32f028bce22efeb70b47a640195bd969dbb337f0
 
+INCLUDE_LOCAL_CHANGES ?= false
+
 ifeq ($(COMPILER_SRC_DIRECTORY),"")
 	COMPILER_SRC_DIRECTORY = "$(PWD)"
 endif
@@ -64,7 +66,11 @@ docker.builder:
 
 .PHONY: docker
 docker: init_submodules ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists build_openapigen_in_container build_gqlgen_in_container build_install_validator_in_container
+ifeq (${INCLUDE_LOCAL_CHANGES}, true)
+	git archive -o compiler.tar --format=tar $(shell git stash create) 
+else
 	git archive -o compiler.tar --format=tar HEAD
+endif
 	tar -rf compiler.tar ../.git ../.gitmodules ../gqlgen ../kube-openapi ../nexus ../install-validator ../common-library
 	docker build --platform ${DOCKER_BUILDER_PLATFORM} --no-cache \
 		--build-arg BUILDER_TAG=${BUILDER_TAG} \

@@ -1,12 +1,13 @@
 package config
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/apigateway"
-	tenantconfig "github.com/vmware-tanzu/graph-framework-for-microservices/api/config/tenant"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/config/user"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/connect"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/route"
+	"nexus/admin/api/apigateway"
+	tenantconfig "nexus/admin/api/config/tenant"
+	"nexus/admin/api/config/user"
+	"nexus/admin/api/connect"
+	"nexus/admin/api/route"
+
+	"nexus/base/nexus"
 )
 
 // Config holds the Nexus configuration.

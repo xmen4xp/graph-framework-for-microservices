@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"domain.CORSConfig","hierarchy":["nexuses.api.nexus.vmware.com","configs.config.nexus.vmware.com","apigateways.apigateway.nexus.vmware.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"domain.CORSConfig","hierarchy":["nexuses.api.admin.nexus.com","configs.config.admin.nexus.com","apigateways.apigateway.admin.nexus.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: corsconfigs.domain.nexus.vmware.com
+  name: corsconfigs.domain.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: domain.nexus.vmware.com
+  group: domain.admin.nexus.com
   names:
     kind: CORSConfig
     listKind: CORSConfigList

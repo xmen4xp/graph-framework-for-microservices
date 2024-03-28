@@ -14,20 +14,20 @@ import (
 var _ = Describe("Datamodel controller", func() {
 	It("should create datamodel crd", func() {
 		gvr := schema.GroupVersionResource{
-			Group:    "nexus.vmware.com",
+			Group:    "nexus.com",
 			Version:  "v1",
 			Resource: "datamodels",
 		}
 
 		unstructuredObject := unstructured.Unstructured{
 			Object: map[string]interface{}{
-				"apiVersion": "nexus.vmware.com/v1",
+				"apiVersion": "nexus.com/v1",
 				"kind":       "Datamodel",
 				"metadata": map[string]interface{}{
-					"name": "nexus.vmware.com",
+					"name": "nexus.com",
 				},
 				"spec": map[string]interface{}{
-					"name":  "nexus.vmware.com",
+					"name":  "nexus.com",
 					"title": "Example title",
 				},
 			},
@@ -36,7 +36,7 @@ var _ = Describe("Datamodel controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			if _, ok := model.DatamodelToDatamodelInfo["nexus.vmware.com"]; ok {
+			if _, ok := model.DatamodelToDatamodelInfo["nexus.com"]; ok {
 				return true
 			}
 			return false

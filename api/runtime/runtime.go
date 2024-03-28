@@ -1,8 +1,9 @@
 package runtime
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
-	tenantruntime "github.com/vmware-tanzu/graph-framework-for-microservices/api/runtime/tenant"
+	tenantruntime "nexus/admin/api/runtime/tenant"
+
+	"nexus/base/nexus"
 )
 
 // Runtime tree.

@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
+	"nexus/base/nexus"
 )
 
 // CORSConfig contains the properties of an CORS Domain configuration

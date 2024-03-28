@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"authentication.OIDC","hierarchy":["nexuses.api.nexus.vmware.com","configs.config.nexus.vmware.com","apigateways.apigateway.nexus.vmware.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"authentication.OIDC","hierarchy":["nexuses.api.admin.nexus.com","configs.config.admin.nexus.com","apigateways.apigateway.admin.nexus.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: oidcs.authentication.nexus.vmware.com
+  name: oidcs.authentication.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: authentication.nexus.vmware.com
+  group: authentication.admin.nexus.com
   names:
     kind: OIDC
     listKind: OIDCList

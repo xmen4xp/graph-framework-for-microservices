@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"connect.ReplicationConfig","hierarchy":["nexuses.api.nexus.vmware.com","configs.config.nexus.vmware.com","connects.connect.nexus.vmware.com"],"links":{"RemoteEndpoint":{"fieldName":"RemoteEndpoint","fieldNameGvk":"remoteEndpointGvk","isNamed":false}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"connect.ReplicationConfig","hierarchy":["nexuses.api.admin.nexus.com","configs.config.admin.nexus.com","connects.connect.admin.nexus.com"],"links":{"RemoteEndpoint":{"fieldName":"RemoteEndpoint","fieldNameGvk":"remoteEndpointGvk","isNamed":false}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: replicationconfigs.connect.nexus.vmware.com
+  name: replicationconfigs.connect.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: connect.nexus.vmware.com
+  group: connect.admin.nexus.com
   names:
     kind: ReplicationConfig
     listKind: ReplicationConfigList

@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 
+	authenticationnexusv1 "nexus/admin/api/build/apis/authentication.admin.nexus.com/v1"
+
 	yamlv1 "github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	authenticationnexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/authentication.nexus.vmware.com/v1"
 )
 
 var _ = Describe("OidcConfig controller", func() {

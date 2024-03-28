@@ -143,7 +143,7 @@ spec:
         - --service-account-issuer=api
         - --service-cluster-ip-range=10.24.0.0/16
         - --disable-admission-plugins=CertificateApproval,CertificateSigning,CertificateSubjectRestriction,DefaultIngressClass,DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,PersistentVolumeClaimResize,PodSecurity,Priority,ResourceQuota,RuntimeClass,ServiceAccount,StorageObjectInUseProtection,TaintNodesByCondition,ValidatingAdmissionPolicy,ValidatingAdmissionWebhook,NodeRestriction,PodNodeSelector
-        image: "{{.Values.imageRegistry}}/nexus-kube-apiserver:{{ .Values.imageTag }}"
+        image: "{{.Values.imageRegistry}}/nexus-kube-apiserver:stable"
         resources:
           requests:
             cpu: "4000m"

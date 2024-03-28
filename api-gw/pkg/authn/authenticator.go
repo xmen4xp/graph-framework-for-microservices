@@ -17,13 +17,14 @@ import (
 
 	"api-gw/pkg/plugins/tenantreg"
 
+	authnexusv1 "nexus/admin/api/build/apis/authentication.admin.nexus.com/v1"
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	"github.com/MicahParks/keyfunc"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
-	authnexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/authentication.nexus.vmware.com/v1"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	"golang.org/x/oauth2"
 )
 

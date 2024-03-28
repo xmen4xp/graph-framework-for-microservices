@@ -25,7 +25,7 @@ echo $NAME
 if [[ -n $NAME ]] && [[ -n $IMAGE ]]; then
   if [[ -n $TITLE ]]; then
     echo '
-      apiVersion: nexus.vmware.com/v1
+      apiVersion: nexus.com/v1
       kind: Datamodel
       metadata:
         name: '"$NAME"'
@@ -36,7 +36,7 @@ if [[ -n $NAME ]] && [[ -n $IMAGE ]]; then
         enableGraphql: '"$GRAPHQL_ENABLED"'' | kubectl apply -f -
   else
     echo '
-    apiVersion: nexus.vmware.com/v1
+    apiVersion: nexus.com/v1
     kind: Datamodel
     metadata:
       name: '"$NAME"'

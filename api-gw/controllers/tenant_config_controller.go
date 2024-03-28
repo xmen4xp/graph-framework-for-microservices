@@ -22,7 +22,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	tenantv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
+	tenantv1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"

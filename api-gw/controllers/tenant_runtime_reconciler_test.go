@@ -4,10 +4,11 @@ import (
 	"api-gw/pkg/common"
 	"context"
 
+	tenantv1 "nexus/admin/api/build/apis/tenantruntime.admin.nexus.com/v1"
+
 	yamlv1 "github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	tenantv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantruntime.nexus.vmware.com/v1"
 )
 
 var _ = Describe("TenantRuntime controller", func() {

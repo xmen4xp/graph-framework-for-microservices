@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 
+	adminv1 "nexus/admin/api/build/apis/admin.admin.nexus.com/v1"
+
 	yamlv1 "github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
-	adminv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/admin.nexus.vmware.com/v1"
 )
 
 var _ = Describe("ProxyRule controller", func() {

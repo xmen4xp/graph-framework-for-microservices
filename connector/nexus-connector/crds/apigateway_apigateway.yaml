@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"apigateway.ApiGateway","hierarchy":["nexuses.api.nexus.vmware.com","configs.config.nexus.vmware.com"],"children":{"corsconfigs.domain.nexus.vmware.com":{"fieldName":"Cors","fieldNameGvk":"corsGvk","isNamed":true},"oidcs.authentication.nexus.vmware.com":{"fieldName":"Authn","fieldNameGvk":"authnGvk","isNamed":false},"proxyrules.admin.nexus.vmware.com":{"fieldName":"ProxyRules","fieldNameGvk":"proxyRulesGvk","isNamed":true}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"apigateway.ApiGateway","hierarchy":["nexuses.api.admin.nexus.com","configs.config.admin.nexus.com"],"children":{"corsconfigs.domain.admin.nexus.com":{"fieldName":"Cors","fieldNameGvk":"corsGvk","isNamed":true},"oidcs.authentication.admin.nexus.com":{"fieldName":"Authn","fieldNameGvk":"authnGvk","isNamed":false},"proxyrules.admin.admin.nexus.com":{"fieldName":"ProxyRules","fieldNameGvk":"proxyRulesGvk","isNamed":true}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: apigateways.apigateway.nexus.vmware.com
+  name: apigateways.apigateway.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: apigateway.nexus.vmware.com
+  group: apigateway.admin.nexus.com
   names:
     kind: ApiGateway
     listKind: ApiGatewayList

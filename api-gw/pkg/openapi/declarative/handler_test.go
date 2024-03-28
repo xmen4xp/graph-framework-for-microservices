@@ -9,11 +9,12 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	"github.com/labstack/echo/v4"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	"k8s.io/client-go/kubernetes"
 )
 

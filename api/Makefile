@@ -1,6 +1,6 @@
 BUILD_DIR ?= build
 CRD_MODULE_PATH ?= $(shell go list -m)/${BUILD_DIR}/
-TAG ?= "latest"
+COMPILER_TAG ?= "latest"
 CONTAINER_ID ?= ""
 DATAMODEL_LOCAL_PATH ?= $(realpath .)
 BUCKET ?= nexus-template-downloads
@@ -35,7 +35,7 @@ datamodel_build:
 			-e CONFIG_FILE=datamodel/nexus.yaml \
 			-e GOPRIVATE=*.eng.vmware.com \
 			-e GOINSECURE=*.eng.vmware.com \
-			nexus/compiler:$(TAG); \
+			nexus/compiler:$(COMPILER_TAG); \
 	else \
 		docker run --pull=missing\
 			--volumes-from=$(CONTAINER_ID) \
@@ -46,7 +46,7 @@ datamodel_build:
 			-e GOPRIVATE=*.eng.vmware.com \
 			-e GOINSECURE=*.eng.vmware.com \
 			-e CICD_TOKEN=${CICD_TOKEN} \
-			nexus/compiler:$(TAG); \
+			nexus/compiler:$(COMPILER_TAG); \
 	fi
 
 docker_build:

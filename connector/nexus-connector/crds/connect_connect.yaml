@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"connect.Connect","hierarchy":["nexuses.api.nexus.vmware.com","configs.config.nexus.vmware.com"],"children":{"nexusendpoints.connect.nexus.vmware.com":{"fieldName":"Endpoints","fieldNameGvk":"endpointsGvk","isNamed":true},"replicationconfigs.connect.nexus.vmware.com":{"fieldName":"ReplicationConfig","fieldNameGvk":"replicationConfigGvk","isNamed":true}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"connect.Connect","hierarchy":["nexuses.api.admin.nexus.com","configs.config.admin.nexus.com"],"children":{"nexusendpoints.connect.admin.nexus.com":{"fieldName":"Endpoints","fieldNameGvk":"endpointsGvk","isNamed":true},"replicationconfigs.connect.admin.nexus.com":{"fieldName":"ReplicationConfig","fieldNameGvk":"replicationConfigGvk","isNamed":true}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: connects.connect.nexus.vmware.com
+  name: connects.connect.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: connect.nexus.vmware.com
+  group: connect.admin.nexus.com
   names:
     kind: Connect
     listKind: ConnectList

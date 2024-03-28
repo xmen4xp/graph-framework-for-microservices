@@ -20,8 +20,9 @@ import (
 	"api-gw/pkg/model"
 	"context"
 
+	domain_nexus_org "nexus/admin/api/build/apis/domain.admin.nexus.com/v1"
+
 	log "github.com/sirupsen/logrus"
-	domain_nexus_org "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/domain.nexus.vmware.com/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	ctrl "sigs.k8s.io/controller-runtime"

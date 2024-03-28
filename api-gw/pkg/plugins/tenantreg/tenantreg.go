@@ -3,7 +3,8 @@ package tenantreg
 import (
 	"fmt"
 
-	tenant_config_v1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
+	tenant_config_v1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

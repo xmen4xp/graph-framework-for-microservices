@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"os"
 
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	"k8s.io/client-go/kubernetes"
 )
 

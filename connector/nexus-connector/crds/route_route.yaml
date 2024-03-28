@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"route.Route","hierarchy":["nexuses.api.nexus.vmware.com","configs.config.nexus.vmware.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"route.Route","hierarchy":["nexuses.api.admin.nexus.com","configs.config.admin.nexus.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: routes.route.nexus.vmware.com
+  name: routes.route.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: route.nexus.vmware.com
+  group: route.admin.nexus.com
   names:
     kind: Route
     listKind: RouteList

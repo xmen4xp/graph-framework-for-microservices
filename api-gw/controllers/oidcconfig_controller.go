@@ -20,8 +20,9 @@ import (
 	"api-gw/pkg/model"
 	"context"
 
+	authnexusv1 "nexus/admin/api/build/apis/authentication.admin.nexus.com/v1"
+
 	log "github.com/sirupsen/logrus"
-	authnexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/authentication.nexus.vmware.com/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,9 +34,9 @@ type OidcConfigReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=authentication.nexus.vmware.com.api-gw.com,resources=oidcconfigs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=authentication.nexus.vmware.com.api-gw.com,resources=oidcconfigs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=authentication.nexus.vmware.com.api-gw.com,resources=oidcconfigs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=authentication.admin.nexus.com.api-gw.com,resources=oidcconfigs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=authentication.admin.nexus.com.api-gw.com,resources=oidcconfigs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=authentication.admin.nexus.com.api-gw.com,resources=oidcconfigs/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

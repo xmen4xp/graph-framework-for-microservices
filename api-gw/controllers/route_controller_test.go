@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 
+	apiv1 "nexus/admin/api/build/apis/api.admin.nexus.com/v1"
+	configv1 "nexus/admin/api/build/apis/config.admin.nexus.com/v1"
+	routev1 "nexus/admin/api/build/apis/route.admin.nexus.com/v1"
+
 	yamlv1 "github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	apiv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/api.nexus.vmware.com/v1"
-	configv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/config.nexus.vmware.com/v1"
-	routev1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/route.nexus.vmware.com/v1"
 )
 
 var _ = Describe("Route controller", func() {

@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 
+	tenantv1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+
 	yamlv1 "github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	tenantv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
 )
 
 var _ = Describe("TenantConfigController controller", func() {

@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"config.Config","hierarchy":["nexuses.api.nexus.vmware.com"],"children":{"apigateways.apigateway.nexus.vmware.com":{"fieldName":"ApiGateway","fieldNameGvk":"apiGatewayGvk","isNamed":false},"connects.connect.nexus.vmware.com":{"fieldName":"Connect","fieldNameGvk":"connectGvk","isNamed":false},"routes.route.nexus.vmware.com":{"fieldName":"Routes","fieldNameGvk":"routesGvk","isNamed":true}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"config.Config","hierarchy":["nexuses.api.admin.nexus.com"],"children":{"apigateways.apigateway.admin.nexus.com":{"fieldName":"ApiGateway","fieldNameGvk":"apiGatewayGvk","isNamed":false},"connects.connect.admin.nexus.com":{"fieldName":"Connect","fieldNameGvk":"connectGvk","isNamed":false},"routes.route.admin.nexus.com":{"fieldName":"Routes","fieldNameGvk":"routesGvk","isNamed":true}},"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: configs.config.nexus.vmware.com
+  name: configs.config.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: config.nexus.vmware.com
+  group: config.admin.nexus.com
   names:
     kind: Config
     listKind: ConfigList

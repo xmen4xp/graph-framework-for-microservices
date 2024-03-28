@@ -1,7 +1,7 @@
 package controllers
 
 var tenantRuntimeExample = `
-apiVersion: tenantruntime.nexus.vmware.com/v1
+apiVersion: tenantruntime.admin.nexus.com/v1
 kind: Tenant
 metadata:
   annotations:
@@ -11,8 +11,8 @@ metadata:
   labels:
     nexus/display_name: 831a06ab-9781-487c-a9da-6c73973e540a
     nexus/is_name_hashed: "true"
-    nexuses.api.nexus.vmware.com: default
-    runtimes.runtime.nexus.vmware.com: default
+    nexuses.api.admin.nexus.com: default
+    runtimes.runtime.admin.nexus.com: default
   name: 43e32e8f86ba4a5e90e44049f19ab8f73b77cc7f
 spec:
   attributes:
@@ -57,28 +57,28 @@ status:
     sourceGeneration: 0
 `
 var tenantConfigExample = `
-apiVersion: tenantconfig.nexus.vmware.com/v1
+apiVersion: tenantconfig.admin.nexus.com/v1
 kind: Tenant
 metadata:
   name: tenant1
   labels:
-    nexuses.api.nexus.vmware.com: default
-    configs.config.nexus.vmware.com: default
-    apigateways.apigateway.nexus.vmware.com: default
+    nexuses.api.admin.nexus.com: default
+    configs.config.admin.nexus.com: default
+    apigateways.apigateway.admin.nexus.com: default
 spec:
   name: tenant1
   skus:
     - advance`
 
 var oidcCrdObjectExample = `
-apiVersion: authentication.nexus.vmware.com/v1
+apiVersion: authentication.admin.nexus.com/v1
 kind: OIDC
 metadata:
   name: okta
   labels:
-    nexuses.api.nexus.vmware.com: default
-    configs.config.nexus.vmware.com: default
-    apigateways.apigateway.nexus.vmware.com: default
+    nexuses.api.admin.nexus.com: default
+    configs.config.admin.nexus.com: default
+    apigateways.apigateway.admin.nexus.com: default
 spec:
   config:
     clientId: "XXX"
@@ -98,7 +98,7 @@ spec:
 
 var corsConfigExample = `
 kind: CORSConfig
-apiVersion: domain.nexus.vmware.com/v1
+apiVersion: domain.admin.nexus.com/v1
 metadata:
   name: default
 spec:
@@ -111,14 +111,14 @@ spec:
 `
 
 var proxyRuleHeaderExample = `
-apiVersion: admin.nexus.vmware.com/v1
+apiVersion: admin.admin.nexus.com/v1
 kind: ProxyRule
 metadata:
   name: header-based
   labels:
-    nexuses.api.nexus.vmware.com: default
-    configs.config.nexus.vmware.com: default
-    apigateways.apigateway.nexus.vmware.com: default
+    nexuses.api.admin.nexus.com: default
+    configs.config.admin.nexus.com: default
+    apigateways.apigateway.admin.nexus.com: default
 spec:
   matchCondition:
     type: header
@@ -131,14 +131,14 @@ spec:
 `
 
 var proxyRuleJwtExample = `
-apiVersion: admin.nexus.vmware.com/v1
+apiVersion: admin.admin.nexus.com/v1
 kind: ProxyRule
 metadata:
   name: csp
   labels:
-    nexuses.api.nexus.vmware.com: default
-    configs.config.nexus.vmware.com: default
-    apigateways.apigateway.nexus.vmware.com: default
+    nexuses.api.admin.nexus.com: default
+    configs.config.admin.nexus.com: default
+    apigateways.apigateway.admin.nexus.com: default
 spec:
   matchCondition:
     type: jwt
@@ -153,21 +153,21 @@ spec:
 `
 
 var nexusExample = `
-apiVersion: api.nexus.vmware.com/v1
+apiVersion: api.admin.nexus.com/v1
 kind: Nexus
 metadata:
   name: default
 `
 
 var configExample = `
-apiVersion: config.nexus.vmware.com/v1
+apiVersion: config.admin.nexus.com/v1
 kind: Config
 metadata:
   name: default
 `
 
 var routeExample = `
-apiVersion: route.nexus.vmware.com/v1
+apiVersion: route.admin.nexus.com/v1
 kind: Route
 metadata:
   name: custom

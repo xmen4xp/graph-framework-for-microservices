@@ -57,7 +57,7 @@ cli.build.darwin:
 		-e GOCACHE=/root/.cache/go-build \
 		-w ${DOCKER_BUILD_MOUNT_DIR}/${CLI_DIR} \
 		golang:1.19.8 \
-		/bin/bash -c "go mod download && make build.darwin";
+		/bin/bash -c "git config --global --add safe.directory '*' && go mod download && make build.darwin";
 
 .PHONY: cli.build.linux
 cli.build.linux:
@@ -68,7 +68,7 @@ cli.build.linux:
 		--volume ${HOME}/.cache/go-build:/root/.cache/go-build \
 		-e GOCACHE=/root/.cache/go-build \
 		golang:1.19.8 \
-		/bin/bash -c "go mod download && make build.linux";
+		/bin/bash -c "git config --global --add safe.directory '*' && go mod download && make build.linux";
 
 .PHONY: cli.install.darwin
 cli.install.darwin:
@@ -130,7 +130,7 @@ dm.install_init:
 
 .PHONY: api.build
 api.build:
-	cd api; TAG=${TAG} VERSION=${TAG} make datamodel_build
+	cd api; COMPILER_TAG=${TAG} VERSION=${TAG} make datamodel_build
 
 .PHONY: api.install
 api.install:
@@ -142,7 +142,7 @@ api.install:
 		--mount type=bind,source=${HOST_KUBECONFIG},target=${MOUNTED_KUBECONFIG},readonly \
 		--mount type=bind,source=$(realpath .)/nexus-runtime-manifests/datamodel-install/datamodel_installer.sh,target=/datamodel_installer.sh,readonly \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
-		-e NAME=nexus.vmware.com \
+		-e NAME=admin.nexus.com \
 		-e IMAGE=gcr.io/nsx-sm/nexus/nexus-api \
 		bitnami/kubectl
 

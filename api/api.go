@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/config"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/api/runtime"
+	"nexus/admin/api/config"
+	"nexus/admin/api/runtime"
+
+	"nexus/base/nexus"
 )
 
 // Nexus is the root node for Nexus infra/runtime datamodel.

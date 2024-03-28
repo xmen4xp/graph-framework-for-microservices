@@ -4,13 +4,13 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     nexus: |
-      {"name":"tenantruntime.Tenant","hierarchy":["nexuses.api.nexus.vmware.com","runtimes.runtime.nexus.vmware.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
+      {"name":"tenantruntime.Tenant","hierarchy":["nexuses.api.admin.nexus.com","runtimes.runtime.admin.nexus.com"],"is_singleton":false,"nexus-rest-api-gen":{"uris":null}}
   creationTimestamp: null
-  name: tenants.tenantruntime.nexus.vmware.com
+  name: tenants.tenantruntime.admin.nexus.com
 spec:
   conversion:
     strategy: None
-  group: tenantruntime.nexus.vmware.com
+  group: tenantruntime.admin.nexus.com
   names:
     kind: Tenant
     listKind: TenantList

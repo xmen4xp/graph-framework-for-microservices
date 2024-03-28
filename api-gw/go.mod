@@ -30,7 +30,6 @@ require (
 	github.com/labstack/gommon v0.4.0
 	github.com/levigross/grequests v0.0.0-20221222020224-9eee758d18d5
 	github.com/pkg/errors v0.9.1
-	github.com/vmware-tanzu/graph-framework-for-microservices/api v0.0.0-20230908154608-60c8916a498f
 	github.com/vmware-tanzu/graph-framework-for-microservices/common-library v0.0.0-20221020140923-7deb4d75cfcf
 	github.com/vmware-tanzu/graph-framework-for-microservices/nexus v0.0.0-20230908154608-60c8916a498f
 	google.golang.org/grpc v1.58.2
@@ -38,6 +37,7 @@ require (
 	k8s.io/api v0.28.2
 	k8s.io/kube-aggregator v0.24.1
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	nexus/admin/api v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -119,4 +119,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace github.com/vmware-tanzu/graph-framework-for-microservices/api => ../api
+replace nexus/admin/api => ../api

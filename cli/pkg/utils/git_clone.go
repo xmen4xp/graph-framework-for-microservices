@@ -21,9 +21,12 @@ import (
 )
 
 func GoModInit(path string, current bool) error {
+	goReplaceString := "go mod edit -replace nexus/base=github.com/intel-innersource/applications.development.nexus.core/nexus@latest"
 	if path != "" {
 		fmt.Printf("Intializing gomodule\nGo mod init name: %s\n", path)
-		cmd := exec.Command("go", "mod", "init", path)
+		cmdString := fmt.Sprintf("go mod init %s; %s ", path, goReplaceString)
+		cmd := exec.Command("/bin/sh", "-c", cmdString)
+
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "GOTOOLCHAIN=go1.18")
 		out, err := cmd.Output()
@@ -31,6 +34,7 @@ func GoModInit(path string, current bool) error {
 		if err != nil {
 			return err
 		}
+
 		if current == false {
 			err := os.Chdir("..")
 			if err != nil {
@@ -39,7 +43,8 @@ func GoModInit(path string, current bool) error {
 		}
 	} else {
 		fmt.Printf("Intializing gomodule\n")
-		cmd := exec.Command("go", "mod", "init")
+		cmdString := fmt.Sprintf("go mod init; %s", goReplaceString)
+		cmd := exec.Command("/bin/sh", "-c", cmdString)
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "GOTOOLCHAIN=go1.18")
 		_, err := cmd.Output()

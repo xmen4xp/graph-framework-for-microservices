@@ -1,7 +1,7 @@
 package route
 
 import (
-	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
+	"nexus/base/nexus"
 )
 
 type Service struct {

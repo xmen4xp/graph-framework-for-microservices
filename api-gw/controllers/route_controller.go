@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	routenexusorgv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/route.nexus.vmware.com/v1"
+	routenexusorgv1 "nexus/admin/api/build/apis/route.admin.nexus.com/v1"
 )
 
 // RouteReconciler reconciles a Route object
@@ -85,9 +85,9 @@ func (r *RouteReconciler) DeleteBaseObjects(baseObjectName string) error {
 	return nil
 }
 
-//+kubebuilder:rbac:groups=route.nexus.vmware.com.api-operator.com,resources=routes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=route.nexus.vmware.com.api-operator.com,resources=routes/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=route.nexus.vmware.com.api-operator.com,resources=routes/finalizers,verbs=update
+//+kubebuilder:rbac:groups=route.admin.nexus.com.api-operator.com,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=route.admin.nexus.com.api-operator.com,resources=routes/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=route.admin.nexus.com.api-operator.com,resources=routes/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

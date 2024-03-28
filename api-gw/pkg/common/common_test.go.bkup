@@ -19,14 +19,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-	apinexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/api.nexus.vmware.com/v1"
-	common_nexus_vmware_com "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/common.nexus.vmware.com/v1"
-	confignexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/config.nexus.vmware.com/v1"
-	runtimenexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/runtime.nexus.vmware.com/v1"
-	tenant_config_v1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
-	v1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantruntime.nexus.vmware.com/v1"
-	userv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/user.nexus.vmware.com/v1"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
+	apinexusv1 "nexus/admin/api/build/apis/api.admin.nexus.com/v1"
+	common_admin_nexus_com "nexus/admin/api/build/apis/common.admin.nexus.com/v1"
+	confignexusv1 "nexus/admin/api/build/apis/config.admin.nexus.com/v1"
+	runtimenexusv1 "nexus/admin/api/build/apis/runtime.admin.nexus.com/v1"
+	tenant_config_v1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+	v1 "nexus/admin/api/build/apis/tenantruntime.admin.nexus.com/v1"
+	userv1 "nexus/admin/api/build/apis/user.admin.nexus.com/v1"
+	nexus_client "nexus/admin/api/build/nexus-client"
 	reg_svc_mock "gitlab.eng.vmware.com/nsx-allspark_users/go-protos/mocks/pkg/registration-service/global"
 	reg_svc "gitlab.eng.vmware.com/nsx-allspark_users/go-protos/pkg/registration-service/global"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,11 +158,11 @@ var _ = Describe("Common Function tests", func() {
 			},
 			Status: v1.TenantNexusStatus{
 				AppStatus: v1.TenantStatus{
-					InstalledApplications: common_nexus_vmware_com.ApplicationStatus{
-						NexusApps: map[string]common_nexus_vmware_com.NexusApp{
+					InstalledApplications: common_admin_nexus_com.ApplicationStatus{
+						NexusApps: map[string]common_admin_nexus_com.NexusApp{
 							"nexus-tenant-runtime": {
-								OamApp: common_nexus_vmware_com.OamApp{
-									Components: map[string]common_nexus_vmware_com.ComponentDefinition{
+								OamApp: common_admin_nexus_com.OamApp{
+									Components: map[string]common_admin_nexus_com.ComponentDefinition{
 										"test.nexus-tenant-runtime": {
 											Name:   "test.nexus-tenant-runtime.tsm-tenant-runtime",
 											Sync:   "OutOfSync",
@@ -172,8 +172,8 @@ var _ = Describe("Common Function tests", func() {
 								},
 							},
 							"tsm-tenant": {
-								OamApp: common_nexus_vmware_com.OamApp{
-									Components: map[string]common_nexus_vmware_com.ComponentDefinition{
+								OamApp: common_admin_nexus_com.OamApp{
+									Components: map[string]common_admin_nexus_com.ComponentDefinition{
 										"test.tsm-tenant-runtime": {
 											Name:   "test.tsm-tenant-runtime",
 											Sync:   "Synced",
@@ -210,11 +210,11 @@ var _ = Describe("Common Function tests", func() {
 		Expect(httpStatus).To(Equal(503))
 
 		tenantS.SetAppStatus(context.TODO(), &v1.TenantStatus{
-			InstalledApplications: common_nexus_vmware_com.ApplicationStatus{
-				NexusApps: map[string]common_nexus_vmware_com.NexusApp{
+			InstalledApplications: common_admin_nexus_com.ApplicationStatus{
+				NexusApps: map[string]common_admin_nexus_com.NexusApp{
 					"nexus-tenant-runtime": {
-						OamApp: common_nexus_vmware_com.OamApp{
-							Components: map[string]common_nexus_vmware_com.ComponentDefinition{
+						OamApp: common_admin_nexus_com.OamApp{
+							Components: map[string]common_admin_nexus_com.ComponentDefinition{
 								"test.nexus-tenant-runtime": {
 									Name:   "test.nexus-tenant-runtime.tsm-tenant-runtime",
 									Sync:   "Synced",
@@ -224,8 +224,8 @@ var _ = Describe("Common Function tests", func() {
 						},
 					},
 					"tsm-tenant": {
-						OamApp: common_nexus_vmware_com.OamApp{
-							Components: map[string]common_nexus_vmware_com.ComponentDefinition{
+						OamApp: common_admin_nexus_com.OamApp{
+							Components: map[string]common_admin_nexus_com.ComponentDefinition{
 								"test.tsm-tenant-runtime": {
 									Name:   "test.tsm-tenant-runtime",
 									Sync:   "Synced",

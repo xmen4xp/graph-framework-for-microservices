@@ -111,7 +111,7 @@ webhooks:
 - name: "nexus-validation-crd.webhook.svc"
     failurePolicy: Fail
     rules:
-    - apiGroups: [ "api.nexus.vmware.com" ] ---> Add required apiGroups(CRD group/base groups)
+    - apiGroups: [ "api.admin.nexus.com" ] ---> Add required apiGroups(CRD group/base groups)
         apiVersions: [ "v1" ]
         operations: [ "CREATE" ]  ---> Add the events you want to intercept
         resources: [ "*" ]

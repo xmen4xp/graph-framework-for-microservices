@@ -42,11 +42,11 @@ data:
       kind: CustomResourceDefinition
       metadata:
         creationTimestamp: null
-        name: datamodels.nexus.vmware.com
+        name: datamodels.nexus.com
       spec:
         conversion:
           strategy: None
-        group: nexus.vmware.com
+        group: nexus.com
         names:
           kind: Datamodel
           listKind: DatamodelList
@@ -93,7 +93,7 @@ data:
       if [[ -n $NAME ]] && [[ -n $IMAGE ]]; then
         if [[ -n $TITLE ]]; then
           echo '
-            apiVersion: nexus.vmware.com/v1
+            apiVersion: nexus.com/v1
             kind: Datamodel
             metadata:
               name: '"$NAME"'
@@ -104,7 +104,7 @@ data:
               enableGraphql: '"$GRAPHQL_ENABLED"'' | kubectl apply -f -
         else
           echo '
-          apiVersion: nexus.vmware.com/v1
+          apiVersion: nexus.com/v1
           kind: Datamodel
           metadata:
             name: '"$NAME"'

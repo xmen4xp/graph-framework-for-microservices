@@ -18,12 +18,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
 
+	apinexusv1 "nexus/admin/api/build/apis/api.admin.nexus.com/v1"
+	confignexusv1 "nexus/admin/api/build/apis/config.admin.nexus.com/v1"
+	domain_nexus_org "nexus/admin/api/build/apis/domain.admin.nexus.com/v1"
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	apinexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/api.nexus.vmware.com/v1"
-	confignexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/config.nexus.vmware.com/v1"
-	domain_nexus_org "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/domain.nexus.vmware.com/v1"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

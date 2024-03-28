@@ -30,8 +30,9 @@ import (
 	"fmt"
 	"os"
 
+	nexus_client "nexus/admin/api/build/nexus-client"
+
 	log "github.com/sirupsen/logrus"
-	nexus_client "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/nexus-client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -48,19 +49,20 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	authnexusv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/authentication.nexus.vmware.com/v1"
+	authnexusv1 "nexus/admin/api/build/apis/authentication.admin.nexus.com/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	"api-gw/controllers"
 
-	adminnexusorgv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/admin.nexus.vmware.com/v1"
-	apigatewaynexusorgv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/apigateway.nexus.vmware.com/v1"
+	adminnexusorgv1 "nexus/admin/api/build/apis/admin.admin.nexus.com/v1"
+	apigatewaynexusorgv1 "nexus/admin/api/build/apis/apigateway.admin.nexus.com/v1"
 
-	middleware_nexus_org_v1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/domain.nexus.vmware.com/v1"
-	routenexusorgv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/route.nexus.vmware.com/v1"
-	tenantv1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantconfig.nexus.vmware.com/v1"
-	tenantruntimev1 "github.com/vmware-tanzu/graph-framework-for-microservices/api/build/apis/tenantruntime.nexus.vmware.com/v1"
+	middleware_nexus_org_v1 "nexus/admin/api/build/apis/domain.admin.nexus.com/v1"
+	routenexusorgv1 "nexus/admin/api/build/apis/route.admin.nexus.com/v1"
+	tenantv1 "nexus/admin/api/build/apis/tenantconfig.admin.nexus.com/v1"
+	tenantruntimev1 "nexus/admin/api/build/apis/tenantruntime.admin.nexus.com/v1"
 
 	//+kubebuilder:scaffold:imports
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
