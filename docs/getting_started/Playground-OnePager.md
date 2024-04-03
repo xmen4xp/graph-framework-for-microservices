@@ -46,11 +46,6 @@ sudo make cli.install.darwin
 echo letsplay > TAG
 ```
 
-#### Build Nexus Runtime
-```
-sudo make runtime.clean; make runtime.build
-```
-
 ### Install Nexus Runtime
 
 There are 2 options to install a Nexus Runtime:
@@ -190,16 +185,37 @@ type Shipping struct {
 Nexus compiler can be invoked to build the datamodel with the following command:
 
 ```
-COMPILER_TAG=letsplay make datamodel_build
+DATAMODEL_DOCKER_REGISTRY=<container-registry-for-datamodel> TAG=<datamodel-tag> make docker.build
 ```
-
-This will generate all the artifacts needed at install and runtime.
-
-The generated artifacts are available in the $PWD/build directory.
 
 ## 6 Install Sock Shop data model on Nexus Runtime
 
 ### 6.1 Export KUBECONFIG to Nexus Runtime
+
+The KUBECONFIG to export depends runtime being used in this playgroud.
+
+***Option 1***: If you running a K0s based Nexus runtime:
+
+Run this make target to get the shell export commands to execute:
+```
+make -C $NEXUS_REPO_DIR runtime.k0s.kubeconfig.export
+```
+
+***Option 2***: If you running a KIND based Nexus runtime:
+
+Run this make target to get the shell export command to execute:
+```
+CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.kind.kubeconfig.export
+```
+
+***NOTE: Remember to execute the printed "export" commands on your shell.***
+
+### 6.2 Install data model
+```
+DATAMODEL_DOCKER_REGISTRY=<container-registry-for-datamodel> TAG=<datamodel-tag> make dm.install
+```
+
+### 6.2 Export KUBECONFIG to Nexus Runtime
 
 The KUBECONFIG to export depends runtime being used in this playgroud.
 
@@ -218,11 +234,6 @@ CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.kind.kubeconfig.export
 ```
 
 ***NOTE: Remember to execute the printed "export" command on your shell.***
-
-### 6.2 Install data model
-```
-make dm.install
-```
 
 ## 7 Let's write our business logic
 

@@ -85,12 +85,23 @@ sed -e "s/HTTP_SERVER_PORT/$server_port/g" -e "s/HEALTH_PROBE_ADDRESS/$health_ad
 
 # Create the kind k8s cluster
 KUBECONFIG_FILE=${CLUSTER_DIR}/kubeconfig
+TMP_KUBECONFIG_FILE=${CLUSTER_DIR}/tmp_kubeconfig
 kind create cluster --name $cluster_name
-kind export kubeconfig --name $cluster_name --kubeconfig ${KUBECONFIG_FILE}
+
+# Export kubeconfig
+
+# ***HACK***
+# We want the kubeconfig to be using the host name of the kind docker container.
+# This is so that other containers running on the same docker network can access it.
+# But the kubeconfig exported from kind has localhost as the server name.
+# So do a string replace on the kubeconfig file to point to use the name of the kind container.
+kind export kubeconfig --name $cluster_name --kubeconfig ${TMP_KUBECONFIG_FILE}
+sed "s/127.0.0.1.*/${cluster_name}-control-plane:6443/g" ${TMP_KUBECONFIG_FILE} > ${KUBECONFIG_FILE}
+rm ${TMP_KUBECONFIG_FILE}
 chmod 666 ${KUBECONFIG_FILE}
 
 MOUNTED_KUBECONFIG=/etc/config/kubeconfig
-docker run -d --name=k8s-proxy-$cluster_name --rm --network host --pull=missing --mount type=bind,source=${KUBECONFIG_FILE},target=${MOUNTED_KUBECONFIG},readonly -e KUBECONFIG=${MOUNTED_KUBECONFIG} bitnami/kubectl proxy -p $kubctl_proxy_port --disable-filter=true --v=1
+docker run -d --name=k8s-proxy-$cluster_name --rm --network kind -p $kubctl_proxy_port:$kubctl_proxy_port --pull=missing --mount type=bind,source=${KUBECONFIG_FILE},target=${MOUNTED_KUBECONFIG},readonly -e KUBECONFIG=${MOUNTED_KUBECONFIG}  amr-registry-pre.caas.intel.com/nexus/nexus-etcd-kubectl:latest /usr/local/bin/kubectl proxy -p $kubctl_proxy_port --disable-filter=true --v=1
 
 exit 0
 

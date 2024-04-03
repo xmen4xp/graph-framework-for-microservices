@@ -232,7 +232,7 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: etcd-defrag
-            image: {{.Values.global.registry}}/nexus-etcd-kubectl:latest
+            image: {{ .Values.imageRegistry }}/nexus/nexus-etcd-kubectl:{{ default .Values.nexusEtcdKubectl.imageTag .Values.imageTag}}
             imagePullPolicy: IfNotPresent
             command:
             - "/bin/bash"

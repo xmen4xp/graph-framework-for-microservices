@@ -14,23 +14,28 @@ services:
       - /var/run
     ports:
       - "6443:6443"
-    network_mode: "bridge"
+    network_mode: "nexus"
     environment:
       K0S_CONFIG: |-
         apiVersion: k0s.k0sproject.io/v1beta1
         kind: Cluster
         metadata:
           name: k0s
+        spec:
+          api:
+            externalAddress: k0s
         # Any additional configuration goes here ...
   k8s-proxy:
     depends_on:
       - k0s
     container_name: k8s-proxy
-    image: bitnami/kubectl
-    command: proxy --disable-filter=true --v=1 --kubeconfig /var/lib/k0s/pki/admin.conf
+    image: amr-registry-pre.caas.intel.com/nexus/nexus-etcd-kubectl:latest
+    command: /usr/local/bin/kubectl proxy -s https://k0s:6443 --disable-filter=true --v=1 --kubeconfig /var/lib/k0s/pki/admin.conf
     hostname: k8s-proxy
     privileged: true
-    network_mode: "host"
+    network_mode: "nexus"
+    ports:
+      - "8001:8001"
     volumes:
       - kubeconfig:/var/lib/k0s/pki
 volumes:

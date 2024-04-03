@@ -1,2 +1,2 @@
 groupName: "admin.nexus.com"
-dockerRepo: gcr.io/nsx-sm/nexus/nexus-api
+dockerRepo: "amr-registry-pre.caas.intel.com"

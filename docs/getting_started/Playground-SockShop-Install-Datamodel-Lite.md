@@ -25,7 +25,7 @@ CLUSTER_NAME=<name> make -C $NEXUS_REPO_DIR runtime.kind.kubeconfig.export
 
 ## Install data model
 ```
-make dm.install
+DATAMODEL_DOCKER_REGISTRY=<container-registry-for-datamodel> TAG=<datamodel-tag> make dm.install
 ```
 
 [[Prev]](Playground-SockShop-Compile-Datamodel-Lite.md) [[Exit]](../../README.md) [[Next]](Playground-SockShop-Access-Datamodel-API-Lite.md)

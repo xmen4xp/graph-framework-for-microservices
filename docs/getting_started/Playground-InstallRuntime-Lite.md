@@ -18,10 +18,6 @@ Nexus data model is installed on a Nexus Runtime software stack.
 # The tag can be anything. Here we use a tag called "letsplay"
 echo letsplay > TAG
 ```
-#### Start Build
-```
-sudo make runtime.clean; make runtime.build
-```
 
 ### 2. Install Runtime
 

@@ -1,3 +1,11 @@
+debugtools:
+  imageTag: latest
+nexusKubeApiserver:
+  imageTag: latest
+nexusApiGw:
+  imageTag: latest
+nexusEtcdKubectl:
+  imageTag: latest
 global:
   useHttps: false
   tainted: true

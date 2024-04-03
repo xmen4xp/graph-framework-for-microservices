@@ -52,7 +52,7 @@ spec:
       serviceAccountName: nexus-k8scerts-service-account
       containers:
       - name: k8scert-creation
-        image: "{{.Values.global.registry}}/debugtools:latest"
+        image: "{{ .Values.imageRegistry }}/nexus/debugtools:{{ default .Values.debugtools.imageTag .Values.imageTag }}"
         imagePullPolicy: IfNotPresent
         command:
         - "/bin/bash"
@@ -107,7 +107,7 @@ metadata:
   labels:
     app: nexus-k8s-apiserver
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: nexus-k8s-apiserver
@@ -143,7 +143,7 @@ spec:
         - --service-account-issuer=api
         - --service-cluster-ip-range=10.24.0.0/16
         - --disable-admission-plugins=CertificateApproval,CertificateSigning,CertificateSubjectRestriction,DefaultIngressClass,DefaultStorageClass,DefaultTolerationSeconds,LimitRanger,MutatingAdmissionWebhook,NamespaceLifecycle,PersistentVolumeClaimResize,PodSecurity,Priority,ResourceQuota,RuntimeClass,ServiceAccount,StorageObjectInUseProtection,TaintNodesByCondition,ValidatingAdmissionPolicy,ValidatingAdmissionWebhook,NodeRestriction,PodNodeSelector
-        image: "{{.Values.imageRegistry}}/nexus-kube-apiserver:stable"
+        image: "{{ .Values.imageRegistry }}/nexus/nexus-kube-apiserver:{{ default .Values.nexusKubeApiserver.imageTag .Values.imageTag }}"
         resources:
           requests:
             cpu: "4000m"
@@ -295,9 +295,9 @@ spec:
       containers:
       - name: nexus-api-gw
 {{- if ne .Values.imageRegistry "" }}
-        image: "{{.Values.imageRegistry}}/api-gw:{{ .Values.imageTag }}"
+        image: "{{ .Values.imageRegistry }}/nexus/api-gw:{{ default .Values.nexusApiGw.imageTag .Values.imageTag }}"
 {{- else }}
-        image: "api-gw:{{ .Values.imageTag }}"
+        image: "nexus/api-gw:{{ default .Values.nexusApiGw.imageTag .Values.imageTag }}"
 {{- end }}
         imagePullPolicy: IfNotPresent
         env:

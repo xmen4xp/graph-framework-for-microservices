@@ -178,7 +178,7 @@ stop: stop-eps-app
 .PHONY: start 
 start:
 	make -C ../.. runtime.install.k8s
-	HOST_KUBECONFIG=~/applications.development.framework.nexus/nexus-runtime-manifests/k8s/kubeconfig make dm.install
+	HOST_KUBECONFIG=~/applications.development.framework.nexus/nexus-runtime-manifests/k8s/kubeconfig TAG=${TAG} make dm.install
 
 .PHONY: run-edges
 run-edges: 

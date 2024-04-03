@@ -4,20 +4,27 @@ DEBUG ?= FALSE
 LOG_LEVEL ?= error
 
 GO_PROJECT_NAME ?= compiler
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+DOCKER_BUILDER_PLATFORM ?= linux/${GOARCH}
+PKG_NAME?=/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/${GO_PROJECT_NAME}
 
-DOCKER_REGISTRY ?= gcr.io/nsx-sm
 
 IMAGE_NAME ?= nexus/compiler
 TAG ?= $(shell git rev-parse --verify --short=8 HEAD)
 
-BUILDER_NAME ?= ${IMAGE_NAME}-builder
+BUILDER_NAME ?= ${IMAGE_NAME}/builder/${GOARCH}
+COMPILER_NAME ?= ${IMAGE_NAME}/${GOARCH}
 BUILDER_TAG ?= $(shell md5sum builder/Dockerfile | awk '{ print $1 }' | head -c 8)
 
-PKG_NAME?=/go/src/github.com/vmware-tanzu/graph-framework-for-microservices/${GO_PROJECT_NAME}
+ifeq (${DOCKER_REGISTRY}, )
+BUILDER_DOCKER_TAG = ${BUILDER_NAME}:${BUILDER_TAG}
+COMPILER_DOCKER_TAG = ${COMPILER_NAME}:${TAG}
+else
+BUILDER_DOCKER_TAG = ${DOCKER_REGISTRY}/${BUILDER_NAME}:${BUILDER_TAG}
+COMPILER_DOCKER_TAG = ${DOCKER_REGISTRY}/${COMPILER_NAME}:${TAG}
+endif
 
-GOOS ?= $(shell go env GOOS)
-GOARCH ?= $(shell go env GOARCH)
-DOCKER_BUILDER_PLATFORM ?= linux/${GOARCH}
 
 DATAMODEL_PATH ?= datamodel
 CONFIG_FILE ?= ""
@@ -62,10 +69,19 @@ endif
 
 .PHONY: docker.builder
 docker.builder:
-	docker build --platform ${DOCKER_BUILDER_PLATFORM} --no-cache -t ${BUILDER_NAME}:${BUILDER_TAG} builder/
+	docker build --platform ${DOCKER_BUILDER_PLATFORM} --no-cache -t ${BUILDER_DOCKER_TAG} builder/
+
+.PHONY: docker.builder.publish
+docker.builder.publish:
+	docker push ${BUILDER_DOCKER_TAG}
+
+.PHONY: docker.builder.image.exists
+docker.builder.image.exists:
+	@docker inspect ${BUILDER_DOCKER_TAG} >/dev/null 2>&1 || \
+                (echo "Image  ${BUILDER_DOCKER_TAG} does not exist. Run 'make compiler.builder' to generate it" && false)
 
 .PHONY: docker
-docker: init_submodules ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists build_openapigen_in_container build_gqlgen_in_container build_install_validator_in_container
+docker: docker.builder.image.exists init_submodules ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists build_openapigen_in_container build_gqlgen_in_container build_install_validator_in_container
 ifeq (${INCLUDE_LOCAL_CHANGES}, true)
 	git archive -o compiler.tar --format=tar $(shell git stash create) 
 else
@@ -73,8 +89,12 @@ else
 endif
 	tar -rf compiler.tar ../.git ../.gitmodules ../gqlgen ../kube-openapi ../nexus ../install-validator ../common-library
 	docker build --platform ${DOCKER_BUILDER_PLATFORM} --no-cache \
-		--build-arg BUILDER_TAG=${BUILDER_TAG} \
-		-t ${IMAGE_NAME}:${TAG} .
+		--build-arg BUILDER_TAG=${BUILDER_DOCKER_TAG} \
+		-t ${COMPILER_DOCKER_TAG} .
+
+.PHONY: docker.publish
+docker.publish:
+	docker push ${COMPILER_DOCKER_TAG}
 
 .PHONY: build
 build:

@@ -3,15 +3,15 @@ CRD_MODULE_PATH ?= $(shell go list -m)/${BUILD_DIR}/
 CONTAINER_ID ?= ""
 DATAMODEL_LOCAL_PATH ?= $(realpath .)
 BUCKET ?= nexus-template-downloads
-COMPILER_TAG ?= "latest"
-COMPILER_DOCKER_REPO ?=
+COMPILER_TAG ?= latest
 VERSION ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
-DATAMODEL_DOCKER_REPO ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
-DATAMODEL_REPO_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
+DATAMODEL_DOCKER_REGISTRY ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
 DATAMODEL_GROUP_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
 NAMESPACE ?= "default"
 HOST_KUBECONFIG ?= ${HOME}/.kube/config
 MOUNTED_KUBECONFIG ?= /etc/config/kubeconfig
+DATAMODEL_BASE_DOCKER_IMAGE=gcr.io/nsx-sm/photon-kubectl:latest
+DOCKER_NETWORK ?= nexus
 
 # values for nexus datamodel upgrade
 FORCE ?= true
@@ -40,12 +40,20 @@ endif
 
 endif
 
-ifeq ($(DATAMODEL_DOCKER_REPO),)
-DATAMODEL_DOCKER_REPO=$(DATAMODEL_REPO_NAME)
+ifeq (${DATAMODEL_DOCKER_REGISTRY}, )
+DATAMODEL_DOCKER_TAG=${DATAMODEL_GROUP_NAME}:${TAG}
+else
+DATAMODEL_DOCKER_TAG=${DATAMODEL_DOCKER_REGISTRY}/${DATAMODEL_GROUP_NAME}:${TAG}
 endif
 
-ifeq ($(VERSION),)
-VERSION="latest"
+COMPILER_DOCKER_REGISTRY ?= amr-registry-pre.caas.intel.com
+IMAGE_NAME ?= nexus/compiler
+GOARCH ?= $(shell go env GOARCH)
+COMPILER_NAME ?= ${IMAGE_NAME}/${GOARCH}
+ifeq (${COMPILER_DOCKER_REGISTRY}, )
+COMPILER_DOCKER_TAG = ${COMPILER_NAME}:${COMPILER_TAG}
+else
+COMPILER_DOCKER_TAG = ${COMPILER_DOCKER_REGISTRY}/${COMPILER_NAME}:${COMPILER_TAG}
 endif
 
 .PHONEY: datamode_build_local_template
@@ -70,7 +78,7 @@ datamode_build_local_template:
 		-e GOPRIVATE=*.eng.vmware.com \
 		-e GOINSECURE=*.eng.vmware.com \
 		-e FORCE=$(FORCE) \
-		${COMPILER_DOCKER_REPO}nexus/compiler:$(COMPILER_TAG) /bin/bash -c 'make generate_code && chown -R $(shell id -u):$(shell id -g) .;'; \
+		${COMPILER_DOCKER_TAG} /bin/bash -c 'make generate_code && chown -R $(shell id -u):$(shell id -g) .;'; \
 
 
 .PHONY: datamodel_build
@@ -102,7 +110,7 @@ datamodel_build:
 			-e GOPRIVATE=*.eng.vmware.com \
 			-e GOINSECURE=*.eng.vmware.com \
 			-e FORCE=$(FORCE) \
-			${COMPILER_DOCKER_REPO}nexus/compiler:$(COMPILER_TAG) /bin/bash -c 'make generate_code && chown -R $(shell id -u):$(shell id -g) .;'; \
+			${COMPILER_DOCKER_TAG} /bin/bash -c 'make generate_code && chown -R $(shell id -u):$(shell id -g) .;'; \
 	else \
 		docker run --pull=missing\
 			--volumes-from=$(CONTAINER_ID) \
@@ -116,42 +124,62 @@ datamodel_build:
 			-e FORCE=${FORCE} \
 			--user root:root \
 			-e FORCE=$(FORCE) \
-			${COMPILER_DOCKER_REPO}nexus/compiler:$(COMPILER_TAG); \
+			${COMPILER_DOCKER_TAG}; \
 	fi
 
-docker_build:
-	@if [ -n "$(DATAMODEL_REPO_NAME)" ]; then \
-				echo "Building image: $(DATAMODEL_DOCKER_REPO):$(VERSION)" ;\
-				docker build --build-arg IMAGE_NAME=$(DATAMODEL_DOCKER_REPO):$(VERSION) --build-arg NAME=$(DATAMODEL_REPO_NAME) -t $(DATAMODEL_DOCKER_REPO):$(VERSION) . -f Dockerfile ; \
-	else \
-			echo "Please provide DATAMODEL_REPO_NAME (GroupName) when running docker_build" ;\
-			exit 1;\
-	fi
+#
+# Usage: DATAMODEL_DOCKER_REGISTRY=<registry> TAG=<tag-value> make docker.build
+# Tag and build datamodel docker image.
+#
+# Example: DATAMODEL_DOCKER_REGISTRY=822995803632.dkr.ecr.us-west-2.amazonaws.com TAG=letstest make docker.build
+#
+.PHONY: docker.build
+docker.build: datamodel_build
+ifeq ($(DATAMODEL_DOCKER_REGISTRY),)
+$(error ERROR: DATAMODEL_DOCKER_REGISTRY is a mandatory argument. Configure it to point to container registry.)
+endif
+ifeq ($(TAG),)
+$(error ERROR: TAG is a mandatory argument. It should contain datamodel container image tag.)
+endif
+	docker build --build-arg DOCKER_BASE_IMAGE=${DATAMODEL_BASE_DOCKER_IMAGE} --build-arg IMAGE_NAME=${DATAMODEL_DOCKER_TAG} --build-arg NAME=${DATAMODEL_GROUP_NAME} -t ${DATAMODEL_DOCKER_TAG} . -f Dockerfile
 
-docker_publish: docker_build
-	docker push $(DATAMODEL_DOCKER_REPO):$(VERSION) ;
+#
+# Usage: DATAMODEL_DOCKER_REGISTRY=<registry> TAG=<tag-value> make docker.publish
+# Tag and publish datamodel docker image.
+#
+# Example: DATAMODEL_DOCKER_REGISTRY=822995803632.dkr.ecr.us-west-2.amazonaws.com TAG=letstest make docker.publish
+#
+.PHONY: docker.publish
+docker.publish:
+	docker push $(DATAMODEL_DOCKER_TAG)
 
 .PHONY: dm.install
 dm.install:
 	docker run \
 	    -u root \
-		--net host \
+		--net ${DOCKER_NETWORK} \
 		--pull=missing \
-		--volume $(realpath .)/build/crds:/crds \
 		--mount type=bind,source=${HOST_KUBECONFIG},target=${MOUNTED_KUBECONFIG},readonly \
-		--mount type=bind,source=$(realpath .)/datamodel_installer.sh,target=/datamodel_installer.sh,readonly \
-		--entrypoint /datamodel_installer.sh \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
 		-e NAME=${DATAMODEL_GROUP_NAME} \
-		-e IMAGE=${DATAMODEL_DOCKER_REPO} \
-		bitnami/kubectl
-
+		-e IMAGE=IMAGE \
+		${DATAMODEL_DOCKER_TAG}
+#
+# Usage: DATAMODEL_DOCKER_REGISTRY=<registry> TAG=<tag-value> make dm.install.helm
+# Install datamodel using helm
+#
+# Example: DATAMODEL_DOCKER_REGISTRY=822995803632.dkr.ecr.us-west-2.amazonaws.com TAG=letstest make dm.install.helm
+#
 .PHONY: dm.install.helm
 dm.install.helm:
-	cd helm-chart; rm crds; ln -sf ../build/crds crds
-	cd helm-chart; helm install epm -n ${NAMESPACE} --set global.datamodelName=epm .
+ifeq ($(DATAMODEL_DOCKER_REGISTRY),)
+$(info ERROR: DATAMODEL_DOCKER_REGISTRY is a mandatory argument. Configure it to point to container registry.)
+endif
+ifeq ($(TAG),)
+$(info ERROR: TAG is a mandatory argument. It should contain datamodel container image tag.)
+endif
+	cd helm-chart; helm install epm -n ${NAMESPACE} --set global.datamodelName=epm --set image=${DATAMODEL_DOCKER_TAG} .
 
 .PHONY: dm.uninstall.helm
 dm.uninstall.helm:
-	cd helm-chart; rm crds
 	cd helm-chart; helm uninstall epm

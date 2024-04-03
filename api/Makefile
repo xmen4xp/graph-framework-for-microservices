@@ -1,20 +1,32 @@
 BUILD_DIR ?= build
 CRD_MODULE_PATH ?= $(shell go list -m)/${BUILD_DIR}/
-COMPILER_TAG ?= "latest"
+COMPILER_TAG ?= latest
 CONTAINER_ID ?= ""
 DATAMODEL_LOCAL_PATH ?= $(realpath .)
 BUCKET ?= nexus-template-downloads
 DOCKER_REPO ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
-VERSION ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
+DATAMODEL_DOCKER_REGISTRY ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
+DATAMODEL_GROUP_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
+TAG ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
 NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
-NAMESPACE ?= "default"
+NEXUS_API_GW_K8S_NAMESPACE ?= "default"
+DOCKER_BASE_IMAGE=gcr.io/nsx-sm/photon-kubectl:latest
+DOCKER_NETWORK ?= nexus
 
-ifeq ($(DOCKER_REPO),)
-DOCKER_REPO=$(NAME)
+ifeq (${DATAMODEL_DOCKER_REGISTRY}, )
+DATAMODEL_DOCKER_TAG=nexus/${DATAMODEL_GROUP_NAME}:${TAG}
+else
+DATAMODEL_DOCKER_TAG=${DATAMODEL_DOCKER_REGISTRY}/nexus/${DATAMODEL_GROUP_NAME}:${TAG}
 endif
 
-ifeq ($(VERSION),)
-VERSION="latest"
+COMPILER_DOCKER_REGISTRY ?= amr-registry-pre.caas.intel.com
+IMAGE_NAME ?= nexus/compiler
+GOARCH ?= $(shell go env GOARCH)
+COMPILER_NAME ?= ${IMAGE_NAME}/${GOARCH}
+ifeq (${COMPILER_DOCKER_REGISTRY}, )
+COMPILER_DOCKER_TAG = ${COMPILER_NAME}:${COMPILER_TAG}
+else
+COMPILER_DOCKER_TAG = ${COMPILER_DOCKER_REGISTRY}/${COMPILER_NAME}:${COMPILER_TAG}
 endif
 
 .PHONY: datamodel_build
@@ -35,7 +47,7 @@ datamodel_build:
 			-e CONFIG_FILE=datamodel/nexus.yaml \
 			-e GOPRIVATE=*.eng.vmware.com \
 			-e GOINSECURE=*.eng.vmware.com \
-			nexus/compiler:$(COMPILER_TAG); \
+			${COMPILER_DOCKER_TAG}; \
 	else \
 		docker run --pull=missing\
 			--volumes-from=$(CONTAINER_ID) \
@@ -46,30 +58,32 @@ datamodel_build:
 			-e GOPRIVATE=*.eng.vmware.com \
 			-e GOINSECURE=*.eng.vmware.com \
 			-e CICD_TOKEN=${CICD_TOKEN} \
-			nexus/compiler:$(COMPILER_TAG); \
+			${COMPILER_DOCKER_TAG}; \
 	fi
 
-docker_build:
-	@if [ -n "$(NAME)" ]; then \
-				echo "Building image: $(DOCKER_REPO):$(VERSION)" ;\
-				docker build --build-arg IMAGE_NAME=$(DOCKER_REPO):$(VERSION) --build-arg NAME=$(NAME) -t $(DOCKER_REPO):$(VERSION) . -f Dockerfile ; \
-	else \
-			echo "Please provide NAME (GroupName) when running docker_build" ;\
-			exit 1;\
-	fi
+.PHONY: docker.build
+docker.build: datamodel_build
+	docker build --build-arg DOCKER_BASE_IMAGE=${DOCKER_BASE_IMAGE} --build-arg IMAGE_NAME=${DATAMODEL_DOCKER_TAG} --build-arg NAME=${DATAMODEL_GROUP_NAME} -t ${DATAMODEL_DOCKER_TAG} . -f Dockerfile
 
-docker_publish: docker_build
-	docker push $(DOCKER_REPO):$(VERSION) ;
+.PHONY: docker.publish
+docker.publish:
+	docker push $(DATAMODEL_DOCKER_TAG)
 
-.PHONY: build
-build: datamodel_build docker_build
+.PHONY: dm.install
+dm.install:
+	docker run \
+		--net ${DOCKER_NETWORK} \
+		--pull=missing \
+		--mount type=bind,source=${HOST_KUBECONFIG},target=${MOUNTED_KUBECONFIG},readonly \
+		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
+		-e NAME=${DATAMODEL_GROUP_NAME} \
+		-e IMAGE=${DATAMODEL_DOCKER_TAG} \
+		${DATAMODEL_DOCKER_TAG}
 
 .PHONY: dm.install.helm
 dm.install.helm:
-	cd helm-chart; rm crds; ln -sf ../build/crds crds
-	cd helm-chart; helm install api -n ${NAMESPACE} --set global.datamodelName=api .
+	cd helm-chart; helm install api -n ${NEXUS_API_GW_K8S_NAMESPACE} --set global.datamodelName=api --set image=${DATAMODEL_DOCKER_TAG} .
 
 .PHONY: dm.uninstall.helm
 dm.uninstall.helm:
-	rm helm-chart/crds
 	helm uninstall api

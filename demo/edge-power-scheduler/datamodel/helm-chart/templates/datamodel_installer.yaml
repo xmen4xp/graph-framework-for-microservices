@@ -1,13 +1,4 @@
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ .Values.global.datamodelName }}-crds
-  namespace: {{ default  .Release.Namespace .Values.global.namespace }}
-type: Opaque
-data:
-{{ (.Files.Glob "crds/*").AsSecrets | indent 2 }}
----
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -22,17 +13,13 @@ spec:
         "sidecar.istio.io/inject": "false"
     spec:
       containers:
-      - command:
-          - /bin/bash
-          - -c
-          - opt/datamodel-installer-job-cm/create_datamodel_cm.sh
+      - image: {{ .Values.image }}
         env:
           - name: KUBECONFIG
             value: /etc/config/kubeconfig
           - name: NAME
             value: {{ .Values.global.datamodelName }}
-        image: bitnami/kubectl
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: datamodel-installer-job
         volumeMounts:
           - mountPath: /opt/datamodel-installer-job-cm/
@@ -40,9 +27,6 @@ spec:
             readOnly: true
           - mountPath: /etc/config
             name: dmi-kubeconfig
-            readOnly: true
-          - mountPath: /crds
-            name: {{ .Values.global.datamodelName }}-crds
             readOnly: true
       restartPolicy: Never
       volumes:
@@ -54,6 +38,3 @@ spec:
           name: dmi-kubeconfig
           defaultMode: 0555
         name: dmi-kubeconfig
-      - secret:
-          secretName: {{ .Values.global.datamodelName }}-crds
-        name: {{ .Values.global.datamodelName }}-crds

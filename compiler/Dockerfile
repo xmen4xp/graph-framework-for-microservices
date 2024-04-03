@@ -1,6 +1,6 @@
 ARG BUILDER_TAG
 
-FROM nexus/compiler-builder:$BUILDER_TAG
+FROM $BUILDER_TAG
 ADD compiler.tar /go/src/github.com/vmware-tanzu/graph-framework-for-microservices/compiler
 ADD cmd/nexus-openapi-gen /go/bin/nexus-openapi-gen
 ADD cmd/gqlgen /go/bin/gqlgen

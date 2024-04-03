@@ -1,6 +1,6 @@
 ARG DOCKER_BASE_IMAGE
 
-FROM $DOCKER_BASE_IMAGE
+FROM $DOCKER_BASE_IMAGE 
 
 ARG IMAGE_NAME
 ARG NAME
@@ -13,4 +13,4 @@ COPY build/install-validator/install.so /build/install.so
 RUN echo $IMAGE_NAME > /IMAGE
 RUN echo $NAME > /NAME
 
-CMD /datamodel_installer.sh
+CMD /datamodel_installer.sh 
