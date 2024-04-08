@@ -50,7 +50,7 @@ define run_in_container
   --network=host \
   --workdir ${PKG_NAME} \
   --user $(shell id -u):$(shell id -g) \
-  "${BUILDER_NAME}:${BUILDER_TAG}" /bin/bash -c 'chown -R $(shell id -u) .; ${1}'
+  "${BUILDER_DOCKER_TAG}" /bin/bash -c 'chown -R $(shell id -u) .; ${1}'
 endef
 else
 define run_in_container
@@ -59,7 +59,7 @@ define run_in_container
  --workdir ${PKG_NAME} \
  --env CICD_TOKEN=${CICD_TOKEN} \
  --env PKG_NAME=${PKG_NAME} \
- "${BUILDER_NAME}:${BUILDER_TAG}" /bin/bash -c "${1}"
+ "${BUILDER_DOCKER_TAG}" /bin/bash -c "${1}"
 endef
 endif
 
@@ -81,7 +81,7 @@ docker.builder.image.exists:
                 (echo "Image  ${BUILDER_DOCKER_TAG} does not exist. Run 'make compiler.builder' to generate it" && false)
 
 .PHONY: docker
-docker: docker.builder.image.exists init_submodules ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists build_openapigen_in_container build_gqlgen_in_container build_install_validator_in_container
+docker: docker.builder.image.exists init_submodules build_openapigen_in_container build_gqlgen_in_container build_install_validator_in_container
 ifeq (${INCLUDE_LOCAL_CHANGES}, true)
 	git archive -o compiler.tar --format=tar $(shell git stash create) 
 else
