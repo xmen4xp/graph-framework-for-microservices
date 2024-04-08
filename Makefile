@@ -181,9 +181,13 @@ api.build:
 api.install:
 	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} DOCKER_NETWORK=nexus make dm.install
 
+.PHONY: api.install.k0s
+api.install.k0s:
+	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k0s/.kubeconfig MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} DOCKER_NETWORK=nexus make dm.install
+
 .PHONY: api.install.kind
 api.install.kind:
-	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} DOCKER_NETWORK=kind make dm.install
+	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/kind/.${CLUSTER_NAME}/kubeconfig MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} DOCKER_NETWORK=kind make dm.install
 
 .PHONY: api-gw.run
 api-gw.run: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k0s/.kubeconfig
@@ -264,7 +268,7 @@ runtime.clean:
 
 .PHONY: runtime.install.k0s 
 runtime.install.k0s: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k0s/.kubeconfig
-runtime.install.k0s: check.repodir create.nexus.docker.network k0s.install api.install api-gw.run
+runtime.install.k0s: check.repodir create.nexus.docker.network k0s.install api.install.k0s api-gw.run
 	$(info )
 	$(info ====================================================)
 	$(info To access runtime, you can execute kubectl as:)
