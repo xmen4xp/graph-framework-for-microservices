@@ -17,7 +17,7 @@ SaaS is at the front and center of cloud strategy of many enterprises.
 
 While this transformation is in full steam, enterprise applications have struggled to keep up with the pace.
 
-SaaS is a long-term commitment, and applications on SaaS have to contend with distributed state, API centric workflows, continous upgrades, etc. The notion that we can simply package an application, deploy it on SaaS and call it a SaaS application is short-sighted.
+SaaS is a long-term commitment, and applications on SaaS have to contend with distributed state, API centric workflows, continuous upgrades, etc. The notion that we can simply package an application, deploy it on SaaS and call it a SaaS application is short-sighted.
 
 We, in software industry, have gone to great lengths to abstract platform from business logic. The same level of diligence is also needed to keep the business logic abstracted from SaaS.
 

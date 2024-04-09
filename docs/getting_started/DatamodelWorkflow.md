@@ -4,7 +4,7 @@ With Nexus you can create your own extensible, distributed platform that:
 
 * Implements a datamodel as K8s CRDs.
 
-* Generates accessors that faciliate easy consumption of the datamodel.
+* Generates accessors that facilitate easy consumption of the datamodel.
 
 * Bootstrap a cloud native application that consumes that datamodel and is ready-to-go in no time.
 
@@ -45,7 +45,7 @@ This guided workflow will walk you through setting up a datamodel that is local 
     ```
 
 <details><summary>FAQ</summary>
-1. The above commmand shows unable to connect to gitlab.eng.vmware.com ?
+1. The above command shows unable to connect to gitlab.eng.vmware.com ?
 
 Verify that you have permissions to the repo
             
@@ -78,7 +78,7 @@ Update gitconfig to use ssh instead of https
 
 1. Start writing datamodel specification for your application.
    
-   **To understand the workflow we can use the below example datmodel. To write your own datamodel please refer** [here](../../compiler/DSL.md)
+   **To understand the workflow we can use the below example datamodel. To write your own datamodel please refer** [here](../../compiler/DSL.md)
    
 **Example Orgchart DSL**
 

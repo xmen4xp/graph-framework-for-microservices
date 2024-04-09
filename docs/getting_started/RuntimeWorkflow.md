@@ -20,7 +20,7 @@
     ```
 
 <details><summary>FAQ</summary>
-1. The above commmand shows unable to connect to gitlab.eng.vmware.com ?
+1. The above command shows unable to connect to gitlab.eng.vmware.com ?
 
 Verify that you have permissions to the repo
             

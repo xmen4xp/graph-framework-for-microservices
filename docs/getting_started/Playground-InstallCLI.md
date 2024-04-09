@@ -45,12 +45,12 @@ Nexus install with user customization
          Run "nexus help" to get started
 ```
    
-Nexus install with specfic version
+Nexus install with specific version
 ```
 	sudo bash get-nexus-cli.sh  -v v0.0.148
 	```
 	
-    Nexus install with specfic version/Image/Directory	
+    Nexus install with specific version/Image/Directory	
 	```
 	sudo bash get-nexus-cli.sh -r gcr.io/nsx-sm/nexus/nexus-cli -v v0.0.148 -d /usr/local/bin
 ```

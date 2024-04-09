@@ -56,7 +56,7 @@ No special labels / taints for Agent App
 Docker should be installed and running on the machine on which the workflow will be executed.
 
 
-# Scale Setup Bringup Workflow
+# Scale Setup Bring up Workflow
 
 ## 1. Clone Nexus Repo
 ```

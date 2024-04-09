@@ -4,11 +4,11 @@ Welcome to the Nexus playground TL;DR version.
 
 This tutorial will walk through a minimalistic workflow to try out Nexus playground.
 
-The goal is to get you goin with Nexus in the shortest possible time.
+The goal is to get you going with Nexus in the shortest possible time.
 
 ## 1. Clone Nexus Repo
 ```
-git clone git@github.com:intel-sandbox/applications.development.framework.nexus.git
+git clone git@github.com:intel-innersource/applications.development.nexus.core.git
 cd applications.development.framework.nexus/
 export NEXUS_REPO_DIR=${PWD}
 ```
@@ -109,7 +109,7 @@ With the above init, the entire code setup needed to define a fully functional d
 
 ### 5.2 Write the model specification fo Sock Shop
 
-Copy & paste the below code snippet to file root.to in the datamodel directory
+Copy & paste the below code snippet to file root.go in the datamodel directory
 
 #### File: root.go
 
@@ -192,7 +192,7 @@ DATAMODEL_DOCKER_REGISTRY=<container-registry-for-datamodel> TAG=<datamodel-tag>
 
 ### 6.1 Export KUBECONFIG to Nexus Runtime
 
-The KUBECONFIG to export depends runtime being used in this playgroud.
+The KUBECONFIG to export depends runtime being used in this playground.
 
 ***Option 1***: If you running a K0s based Nexus runtime:
 
@@ -217,7 +217,7 @@ DATAMODEL_DOCKER_REGISTRY=<container-registry-for-datamodel> TAG=<datamodel-tag>
 
 ### 6.2 Export KUBECONFIG to Nexus Runtime
 
-The KUBECONFIG to export depends runtime being used in this playgroud.
+The KUBECONFIG to export depends runtime being used in this playground.
 
 ***Option 1***: If you running a K0s based Nexus runtime:
 

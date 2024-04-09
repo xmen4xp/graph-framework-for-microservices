@@ -47,7 +47,7 @@ Host github.com
 }
 ```
 
-### Restart the docker deamon for the chanages to take effect
+### Restart the docker daemon for the changes to take effect
 ```
 > sudo systemctl restart docker.service
 ```

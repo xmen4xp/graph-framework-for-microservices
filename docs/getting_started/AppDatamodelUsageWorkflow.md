@@ -8,13 +8,13 @@ This workflow will walk you through the steps to interact and work with your app
 
 
 ## Pre-requisites
-1. This workflow requires Datamodel to be initialised and installed before proceeding to further steps. Please follow the below link to configure datamodel
+1. This workflow requires Datamodel to be initialized and installed before proceeding to further steps. Please follow the below link to configure datamodel
 
     #### [Datamodel Workflow](DatamodelWorkflow.md)
 
 <!--
 
-1. This workflow requires the App should be initialised and configured before proceeding to further steps. Please follow the below link to configure the App
+1. This workflow requires the App should be initialized and configured before proceeding to further steps. Please follow the below link to configure the App
 
     #### [App Workflow](AppWorkflow.md)
 -->
@@ -30,7 +30,7 @@ export DOCS_INTERNAL_DIR=$PWD/docs/_internal
 ## Usage examples with Nexus Tools
 
 ```
-# Portforward the services Nexus API Gw and GraphQL to access the datamodel objects
+# Port forward the services Nexus API Gw and GraphQL to access the datamodel objects
 kubectl port-forward svc/nexus-api-gw 5000:80 -n default &
 ```
 
