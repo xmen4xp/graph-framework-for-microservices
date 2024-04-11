@@ -11,11 +11,15 @@ Let's build our data model and generate all the artifacts needed for the runtime
 Nexus compiler can be invoked to build the datamodel with the following command:
 
 ```
-COMPILER_TAG=letsplay make datamodel_build
+DATAMODEL_DOCKER_REGISTRY=<container-registry-for-datamodel> TAG=<datamodel-tag> make docker.build
 ```
 
-This will generate all the artifacts needed at install and runtime.
+Example
 
-The generated artifacts are available in the $PWD/build directory.
+```
+DATAMODEL_DOCKER_REGISTRY=foo.com TAG=test make docker.build
+```
+
+This will generate a docker image packaged with all required artifacts.
 
 [[Prev]](Playground-SockShop-Complete-Datamodel-Lite.md) [[Exit]](../../README.md) [[Next]](Playground-SockShop-Install-Datamodel-Lite.md)
