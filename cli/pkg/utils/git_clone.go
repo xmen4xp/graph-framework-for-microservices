@@ -21,7 +21,7 @@ import (
 )
 
 func GoModInit(path string, current bool) error {
-	goReplaceString := "go mod edit -replace nexus/base=github.com/intel-innersource/applications.development.nexus.core/nexus@latest"
+	goReplaceString := "go mod edit -replace nexus/base=github.com/intel-innersource/applications.development.nexus.core/nexus@v0.0.0-20240409150945-024eaf51388e"
 	if path != "" {
 		fmt.Printf("Intializing gomodule\nGo mod init name: %s\n", path)
 		cmdString := fmt.Sprintf("go mod init %s; %s ", path, goReplaceString)

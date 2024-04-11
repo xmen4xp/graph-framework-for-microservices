@@ -16,12 +16,6 @@ while getopts "n:ds:m:h:k:p:" flag; do
     esac
 done
 
-if [ "$delete_cluster" == true ] ; then
-    cleanup_cluster
-    exit 0
-fi
-
-
 if [ -z "$start_port" ]
 then
       echo "start port number is mandatory. Provide a valid start port number with -s argument"
@@ -30,6 +24,11 @@ fi
 
 # kubectl proxy port
 export KUBECTL_PROXY_PORT=$start_port
+
+if [ "$delete_cluster" == true ] ; then
+    cleanup_cluster
+    exit 0
+fi
 
 # Cleanup stale cluster, if any
 cleanup_cluster

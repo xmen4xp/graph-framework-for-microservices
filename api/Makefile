@@ -7,11 +7,12 @@ BUCKET ?= nexus-template-downloads
 DOCKER_REPO ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
 DATAMODEL_DOCKER_REGISTRY ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
 DATAMODEL_GROUP_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
-TAG ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
+TAG ?= latest
 NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
 NEXUS_API_GW_K8S_NAMESPACE ?= "default"
 DOCKER_BASE_IMAGE=gcr.io/nsx-sm/photon-kubectl:latest
 DOCKER_NETWORK ?= nexus
+MOUNTED_KUBECONFIG ?= /etc/config/kubeconfig
 
 ifeq (${DATAMODEL_DOCKER_REGISTRY}, )
 DATAMODEL_DOCKER_TAG=nexus/${DATAMODEL_GROUP_NAME}:${TAG}

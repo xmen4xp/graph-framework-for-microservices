@@ -11,6 +11,7 @@ DATAMODEL_NAME ?= $(shell grep groupName ${DATAMODEL_DIR}/nexus.yaml | cut -f 2 
 DATAMODEL_IMAGE_NAME ?= $(shell grep dockerRepo ${DATAMODEL_DIR}/nexus.yaml | cut -f 2 -d" ")
 TAG ?= $(shell cat TAG | awk '{ print $1 }')
 COMPILER_TAG ?= latest
+CLUSTER_PORT ?= 9000
 K8S_RUNTIME_PORT = $(shell echo $$(( ${CLUSTER_PORT} + 1 )))
 LOG_LEVEL ?= ERROR
 DOCKER_REGISTRY ?= amr-registry-pre.caas.intel.com
@@ -160,7 +161,7 @@ k8s.install:
 
 .PHONY: k8s.uninstall
 k8s.uninstall:
-	$(realpath .)/nexus-runtime-manifests/k8s/stop_k8s.sh
+	$(realpath .)/nexus-runtime-manifests/k8s/run_k8s.sh -p ${CLUSTER_PORT} -d
 
 .PHONY: dm.install_init
 dm.install_init:
@@ -179,7 +180,7 @@ api.build:
 
 .PHONY: api.install
 api.install:
-	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} DOCKER_NETWORK=nexus make dm.install
+	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k8s/kubeconfig DOCKER_NETWORK=nexus make dm.install
 
 .PHONY: api.install.k0s
 api.install.k0s:
@@ -190,11 +191,10 @@ api.install.kind:
 	cd api; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${ADMIN_DATAMODEL_DEFAULT_RUN_TAG} HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/kind/.${CLUSTER_NAME}/kubeconfig MOUNTED_KUBECONFIG=${MOUNTED_KUBECONFIG} DOCKER_NETWORK=kind make dm.install
 
 .PHONY: api-gw.run
-api-gw.run: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k0s/.kubeconfig
 api-gw.run: api-gw.stop
 	docker run -d \
 		--name=nexus-api-gw \
-		--rm \
+		--restart=always \
                 --network nexus \
 		--pull=missing \
 		-p 8082:8082 \
@@ -321,9 +321,9 @@ runtime.install.kind: check.kind check.repodir kind.install api.install.kind api
 	$(info )
 	$(info ====================================================)
 
-.PHONY: runtime.install.k8s
-runtime.install.k8s: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k8s/kubeconfig
-runtime.install.k8s: runtime.uninstall.k8s k8s.install dm.install_init api.install api-gw.k8s.run
+.PHONY: runtime.install
+runtime.install: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k8s/kubeconfig
+runtime.install: runtime.uninstall create.nexus.docker.network k8s.install api.install api-gw.run
 	$(info )
 	$(info ====================================================)
 	$(info To access runtime, you can execute kubectl as:)
@@ -335,8 +335,8 @@ runtime.install.k8s: runtime.uninstall.k8s k8s.install dm.install_init api.insta
 	$(info )
 	$(info ====================================================)
 
-.PHONY: runtime.uninstall.k8s
-runtime.uninstall.k8s: k8s.uninstall api-gw.stop
+.PHONY: runtime.uninstall
+runtime.uninstall: k8s.uninstall api-gw.stop
 	$(info )
 	$(info ====================================================)
 	$(info Runtime is now uninstalled)
