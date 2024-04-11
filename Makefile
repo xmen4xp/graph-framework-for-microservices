@@ -123,7 +123,7 @@ api-gw.docker:
 		--volume $(realpath .):${DOCKER_BUILD_MOUNT_DIR} \
 		-w ${DOCKER_BUILD_MOUNT_DIR}/${API_GW_COMPONENT_NAME} \
 		golang:1.19.8 \
-		/bin/bash -c "go mod download && GOOS=${OS} GOARCH=${ARCH} go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME}";
+		/bin/bash -c "go mod tidy && go mod download && GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME}";
 	docker build --platform ${DOCKER_BUILDER_PLATFORM} -t ${API_GW_DOCKER_IMAGE} -f api-gw/Dockerfile .
 
 #
@@ -194,15 +194,15 @@ api.install.kind:
 api-gw.run: api-gw.stop
 	docker run -d \
 		--name=nexus-api-gw \
-		--restart=always \
                 --network nexus \
+		--restart=always \
 		--pull=missing \
 		-p 8082:8082 \
 		--mount type=bind,source=${HOST_KUBECONFIG},target=${MOUNTED_KUBECONFIG},readonly \
 		--mount type=bind,source=$(realpath .)/${API_GW_COMPONENT_NAME}/deploy/config/api-gw-config.yaml,target=/api-gw-config.yaml,readonly \
 		-e APIGWCONFIG=/api-gw-config.yaml \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
-		-e KUBEAPI_ENDPOINT="http://k8s-proxy:8001" \
+		-e KUBEAPI_ENDPOINT="http://k8s-proxy:${CLUSTER_PORT}" \
 		${API_GW_RUN_DOCKER_IMAGE}
 
 .PHONY: api-gw.stop

@@ -15,7 +15,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	labelSelector "k8s.io/apimachinery/pkg/labels"
@@ -287,6 +286,7 @@ func KubeDeleteHandler(c echo.Context) error {
 	}
 	labels := make(map[string]string)
 	name := c.Param("name")
+	log.Debugf("KubeDeleteHandler: display name: %s", name)
 
 	if c.QueryParams().Has("labelSelector") {
 		labelsMap, err := labelSelector.ConvertSelectorToLabelsMap(c.QueryParams().Get("labelSelector"))
@@ -298,11 +298,8 @@ func KubeDeleteHandler(c echo.Context) error {
 		}
 	}
 
-	if !strings.Contains(c.Request().Header.Get("User-Agent"), "kubectl") {
-		name = nexus.GetHashedName(nc.CrdType, crdInfo.ParentHierarchy, labels, name)
-	}
-
-	log.Debugf("KubeDeleteHandler: name: %s, labels: %s", name, labels)
+	name = nexus.GetHashedName(nc.CrdType, crdInfo.ParentHierarchy, labels, name)
+	log.Debugf("KubeDeleteHandler: hashedName: %s, labels: %s", name, labels)
 
 	err := client.DeleteObject(gvr, nc.CrdType, crdInfo, name)
 	if err != nil {
