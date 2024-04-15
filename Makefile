@@ -317,7 +317,7 @@ runtime.install.kind: check.kind check.repodir kind.install api.install.kind api
 	$(info )
 	$(info To access nexus api gateway using kubeconfig, export:)
 	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
-	$(info     export DOCKER_NETWORK=kind
+	$(info     export DOCKER_NETWORK=kind)
 	$(info )
 	$(info ====================================================)
 

@@ -79,6 +79,10 @@ dm.install:
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
 		-e NAME=${DATAMODEL_GROUP_NAME} \
 		-e IMAGE=${DATAMODEL_DOCKER_TAG} \
+		-e https_proxy= \
+		-e http_proxy= \
+		-e HTTPS_PROXY= \
+		-e HTTP_PROXY= \
 		${DATAMODEL_DOCKER_TAG}
 
 .PHONY: dm.install.helm
