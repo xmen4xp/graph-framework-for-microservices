@@ -203,6 +203,10 @@ api-gw.run: api-gw.stop
 		-e APIGWCONFIG=/api-gw-config.yaml \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
 		-e KUBEAPI_ENDPOINT="http://k8s-proxy:${CLUSTER_PORT}" \
+		-e https_proxy='' \
+		-e http_proxy='' \
+		-e HTTPS_PROXY='' \
+		-e HTTP_PROXY='' \
 		${API_GW_RUN_DOCKER_IMAGE}
 
 .PHONY: api-gw.stop
