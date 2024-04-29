@@ -327,6 +327,7 @@ runtime.install.kind: check.kind check.repodir kind.install api.install.kind api
 
 .PHONY: runtime.install
 runtime.install: HOST_KUBECONFIG=$(realpath .)/nexus-runtime-manifests/k8s/kubeconfig
+runtime.install: HOST_KUBECONFIG_LOCAL=$(realpath .)/nexus-runtime-manifests/k8s/kubeconfig.local
 runtime.install: runtime.uninstall create.nexus.docker.network k8s.install api.install api-gw.run
 	$(info )
 	$(info ====================================================)
@@ -334,8 +335,11 @@ runtime.install: runtime.uninstall create.nexus.docker.network k8s.install api.i
 	$(info     kubectl -s localhost:${CLUSTER_PORT} ...)
 	$(info )
 	$(info )
-	$(info To access nexus api gateway using kubeconfig, export:)
+	$(info For command line  access nexus api gateway using kubeconfig, export:)
 	$(info     export HOST_KUBECONFIG=${HOST_KUBECONFIG})
+	$(info )
+	$(info For programmatic access to nexus runtime from a local process running on localhost, export:)
+	$(info     export HOST_KUBECONFIG_LOCAL=${HOST_KUBECONFIG_LOCAL})
 	$(info )
 	$(info ====================================================)
 
