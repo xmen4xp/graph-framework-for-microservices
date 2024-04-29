@@ -13,7 +13,7 @@ import (
 // runtime state, inventory and other state essential to the
 // functioning of Nexus SDK and runtime.
 type Nexus struct {
-	nexus.Node
+	nexus.SingletonNode
 
 	// Configuration.
 	Config  config.Config   `nexus:"child"`

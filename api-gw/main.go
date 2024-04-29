@@ -22,6 +22,7 @@ import (
 	"api-gw/pkg/common"
 	"api-gw/pkg/config"
 	"api-gw/pkg/envoy"
+	grpcproxy "api-gw/pkg/grpc-proxy"
 	"api-gw/pkg/model"
 	"api-gw/pkg/openapi/api"
 	"api-gw/pkg/openapi/declarative"
@@ -94,8 +95,10 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var grpcAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&grpcAddr, "grpc-address", ":8083", "The address that gRPC endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -196,6 +199,9 @@ func main() {
 		if conf.Server.MetricsAddress != "" {
 			metricsAddr = conf.Server.MetricsAddress
 		}
+
+		// Start GRPC proxy.
+		go grpcproxy.GRPCProxyInit(nexusClientSet, grpcAddr, stopCh)
 
 		InitManager(metricsAddr, probeAddr, enableLeaderElection, stopCh, lvl)
 	}

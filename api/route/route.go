@@ -23,3 +23,10 @@ type Route struct {
 	Service  Service
 	Resource ResourceConfig
 }
+
+type Server struct {
+	nexus.Node
+
+	Uri     string
+	Service Service
+}

@@ -13,13 +13,16 @@ import (
 // Config holds the Nexus configuration.
 // Configuration in Nexus is intent-driven.
 type Config struct {
-	nexus.Node
+	nexus.SingletonNode
 
 	// Gateway configuration.
 	ApiGateway apigateway.ApiGateway `nexus:"child"`
 
 	// API extensions configuration.
 	Routes route.Route `nexus:"children"`
+
+	// Exposed server configuration.
+	Servers route.Server `nexus:"children"`
 
 	// Nexus Connect configuration.
 	Connect      connect.Connect     `nexus:"child"`

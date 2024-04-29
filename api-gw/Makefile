@@ -101,25 +101,6 @@ lint: ## lint checks using the make targets
 go_get:
 	GOINSECURE=*.eng.vmware.com GOPRIVATE=*.eng.vmware.com go get . ;
 
-.PHONY: build
-build: lint ## Build manager binary.
-	mkdir -p .ssh ;\
-	if [ -n $(CICD_TOKEN) ]; then \
-		DOCKER_BUILDKIT=1 docker build --build-arg APP_NAME=${APP_NAME} \
-					--build-arg GIT_HEAD=${GIT_HEAD} \
-					--build-arg GIT_TAG=${CI_COMMIT} \
-					--build-arg CICD_TOKEN=${CICD_TOKEN} \
-					-t ${IMAGE_REGISTRY}:${IMAGE_TAG} --progress=plain --no-cache -f Dockerfile.build;\
-	else \
-		test -s ~/.ssh || { echo "Please provide CICD_TOKEN if ssh not available."; exit 1; }; \
-		cp -rf ~/.ssh/* .ssh ;\
-		DOCKER_BUILDKIT=1 docker build --build-arg APP_NAME=${APP_NAME} \
-					--build-arg GIT_HEAD=${GIT_HEAD} \
-					--build-arg GIT_TAG=${CI_COMMIT} \
-					--build-arg USE_SSH="true" \
-					-t ${IMAGE_REGISTRY}:${IMAGE_TAG} --progress=plain --no-cache -f Dockerfile.build;\
-	fi
-
 ##@ Test
 .PHONY: init-unit-test
 init-unit-test:
@@ -176,7 +157,7 @@ coverage: init-unit-test
 ##@ Publish
 
 .PHONY: publish
-publish: build ## Push docker image with the manager.
+publish:
 	docker push ${IMAGE_REGISTRY}:${IMAGE_TAG}
 
 ##@ Security Scan

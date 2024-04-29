@@ -56,6 +56,12 @@ ifneq (${NEXUS_REPO_DIR}, ${CWD})
 	$(error NEXUS_REPO_DIR and current working directory does not match)
 endif
 
+.PHONY: check.tag
+check.tag:
+ifndef TAG
+	$(error TAG is mandatory and should be set to the desired docker image tag)
+endif
+
 .PHONY: create.nexus.docker.network
 create.nexus.docker.network:
 	docker network create nexus | true
@@ -117,14 +123,8 @@ compiler.build.publish:
 # Example: DOCKER_REGISTRY=822995803632.dkr.ecr.us-west-2.amazonaws.com TAG=letstest make api-gw.docker
 #
 .PHONY: api-gw.docker
-api-gw.docker:
-	docker run \
-		--pull=missing \
-		--volume $(realpath .):${DOCKER_BUILD_MOUNT_DIR} \
-		-w ${DOCKER_BUILD_MOUNT_DIR}/${API_GW_COMPONENT_NAME} \
-		golang:1.19.8 \
-		/bin/bash -c "go mod tidy && go mod download && GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME}";
-	docker build --platform ${DOCKER_BUILDER_PLATFORM} -t ${API_GW_DOCKER_IMAGE} -f api-gw/Dockerfile .
+api-gw.docker: check.tag
+	docker build --build-arg API_GW_COMPONENT_NAME=${API_GW_COMPONENT_NAME} -t ${API_GW_DOCKER_IMAGE} -f api-gw/Dockerfile .
 
 #
 # Usage: DOCKER_REGISTRY=<registry> TAG=<tag-value> make api-gw.docker.kubeconfig
@@ -202,6 +202,7 @@ api-gw.run: api-gw.stop
 		--mount type=bind,source=$(realpath .)/${API_GW_COMPONENT_NAME}/deploy/config/api-gw-config.yaml,target=/api-gw-config.yaml,readonly \
 		-e APIGWCONFIG=/api-gw-config.yaml \
 		-e KUBECONFIG=${MOUNTED_KUBECONFIG} \
+		-e LOG_LEVEL=DEBUG \
 		-e KUBEAPI_ENDPOINT="http://k8s-proxy:${CLUSTER_PORT}" \
 		-e https_proxy='' \
 		-e http_proxy='' \
