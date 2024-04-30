@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  light-controller:
+    container_name: light-controller
+    image: ${IMAGE_REGISTRY}/traffic-light:${IMAGE_TAG}
+    command: /bin/light-controller -k /etc/config/kubeconfig
+    hostname: light-controller
+    privileged: true
+    volumes:
+      - ${KUBECONFIG}:/etc/config/kubeconfig
+    network_mode: "nexus"
+    environment:
+      LOG_LEVEL: DEBUG
+  light-connector:
+    container_name: light-connector
+    image: ${IMAGE_REGISTRY}/traffic-light:${IMAGE_TAG}
+    command: /bin/light-connector -k /etc/config/kubeconfig
+    hostname: light-connector
+    privileged: true
+    volumes:
+      - ${KUBECONFIG}:/etc/config/kubeconfig
+    network_mode: "nexus"
+    environment:
+      LOG_LEVEL: DEBUG
+      NUM_LIGHTS: 1

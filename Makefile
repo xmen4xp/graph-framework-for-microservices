@@ -482,7 +482,7 @@ demo.uninstall.kubeconfig: core.uninstall.kubeconfig
 	kubectl delete -n ${NAMESPACE} pvc data-nexus-etcd-0
 	kubectl delete -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
-.PHONY: trafic.demo.install.kubeconfig
+.PHONY: traffic.demo.install.kubeconfig
 traffic.demo.install.kubeconfig: core.install.kubeconfig
 	cd demo/traffic-lights/datamodel; DATAMODEL_DOCKER_REGISTRY=${DOCKER_REGISTRY} TAG=${TAG} make dm.install.helm
 	cd demo/traffic-lights/helm-chart; helm install trafficlightapp --set imageTag=${TAG} --set global.tainted=true --set imageRegistry=${DOCKER_REGISTRY} --namespace ${NAMESPACE}  .

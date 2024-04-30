@@ -3,6 +3,7 @@ TAG ?= $(shell cat ../../TAG | awk '{ print $1 }')
 #TAG ?= dbakiaraj-perf
 NAMESPACE ?= default
 CONTAINER_REGISTRY_DOMAIN ?= 822995803632.dkr.ecr.us-west-2.amazonaws.com
+TRAFFIC_LIGHT_IMAGE_TAG ?= latest
 
 .PHONY: tidy
 tidy:
@@ -19,6 +20,14 @@ dm:
 .PHONY: dm.install
 dm.install:
 	${MAKE} -C datamodel dm.install
+
+.PHONY: runtime.install.docker
+runtime.install.docker: runtime.uninstall.docker
+	IMAGE_REGISTRY=${CONTAINER_REGISTRY_DOMAIN} IMAGE_TAG=${TRAFFIC_LIGHT_IMAGE_TAG} KUBECONFIG=${HOST_KUBECONFIG} docker compose -f deploy/docker/compose.yaml up -d
+
+.PHONY: runtime.uninstall.docker
+runtime.uninstall.docker:
+	IMAGE_REGISTRY=${CONTAINER_REGISTRY_DOMAIN} IMAGE_TAG=${TRAFFIC_LIGHT_IMAGE_TAG} KUBECONFIG=${HOST_KUBECONFIG} docker compose -f deploy/docker/compose.yaml down
 
 .PHONY: build build.amd64 build.darwin
 build: build.amd64 build.darwin

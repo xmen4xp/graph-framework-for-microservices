@@ -85,6 +85,14 @@ func (c *Clientset) SubscribeAll() {
 	if _,ok := subscriptionMap.Load(key); !ok {
 		informer := {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
 		subscribe(key, informer)
+
+		{{if $node.Parent.HasParent}}
+		chainer := {{$node.GroupResourceType}}Chainer{
+			client: c,
+		}
+		chainer.RegisterAddCallback(chainer.addCallback)
+		chainer.RegisterDeleteCallback(chainer.deleteCallback)
+		{{end}}
 	}
 	{{end}}
 }
@@ -1217,6 +1225,11 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 		fmt.Println("Informer doesn't exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, so creating a new one")
 		informer = {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
 		subscribe(key, informer)
+
+		{{if .Parent.HasParent}}
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+		{{end}}
 	}
 	registrationId, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}){
@@ -1246,6 +1259,9 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 					panic("error occurred while fetching parent " + err.Error())
 				}
 				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
+			}
+			if ! IsChildExists("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name) {
+				AddChild("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name)
 			}
 			{{end}}
 			addCB(nc)
@@ -1291,6 +1307,10 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 				}
 				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
 			}
+
+			if IsChildExists("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name) {
+				RemoveChild("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name)
+			}
 			{{end}}
 			deleteCB(nc)
 		},
@@ -1303,53 +1323,26 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 	var (
 		registrationId cache.ResourceEventHandlerRegistration
 		err error
+		informer       cache.SharedIndexInformer
 	)
+
 	key := "{{$node.CrdName}}"
-	stopper := make(chan struct{})
 	if s, ok := subscriptionMap.Load(key); ok {
-		log.Debugf("[RegisterAddCallback] {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Use Subscription Informer")
-        sub := s.(subscription)
-        registrationId,err = sub.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-            AddFunc: func(obj interface{}){
-				nc := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-				client: c.client,
-					{{$node.BaseNodeName}}: obj.(*{{$node.GroupBaseImport}}),
-				}
+		fmt.Println("Informer exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, so creating a new one")
+		informer = {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
+		subscribe(key, informer)
 
-				{{if .Parent.HasParent}}
-				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-				for i := 0; i < 600; i++ {
-					// Check if parent exists
-					p, err := nc.GetParent(context.TODO())
-					if err != nil || p == nil {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					parent = p
-					break
-				}
+		{{if .Parent.HasParent}}
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+		{{end}}
+	}
 
-				if parent == nil {
-					hashedName := helper.GetHashedName("{{.Parent.CrdName}}", nc.Labels, nc.Labels["{{.Parent.CrdName}}"])
-					parent, err = c.client.{{.Parent.SimpleGroupTypeName}}().ForceRead{{.Parent.BaseNodeName}}ByName(context.TODO(), hashedName)
-					if err != nil {
-						if errors.IsNotFound(err) {
-							return
-						}
-
-						panic("error occurred while fetching parent " + err.Error())
-					}
-					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-				}
-				{{end}}
-
-				cbfn(nc)
-            },
-        })
-    } else {
-		log.Debugf("[RegisterAddCallback] {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Create New Informer")
-		informer := {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
-		registrationId,err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+    registrationId,err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
             AddFunc: func(obj interface{}){
 				nc := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 					client: c.client,
@@ -1368,7 +1361,6 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 					parent = p
 					break
 				}
-
 				if parent == nil {
 					hashedName := helper.GetHashedName("{{.Parent.CrdName}}", nc.Labels, nc.Labels["{{.Parent.CrdName}}"])
 					parent, err = c.client.{{.Parent.SimpleGroupTypeName}}().ForceRead{{.Parent.BaseNodeName}}ByName(context.TODO(), hashedName)
@@ -1381,13 +1373,16 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 					}
 					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
 				}
+
+				if ! IsChildExists("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name) {
+					AddChild("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name)
+				}
 				{{end}}
 
 				cbfn(nc)
             },
-		})
-		go informer.Run(stopper)
-	}
+        })
+
 	return registrationId,err
 }
 
@@ -1396,43 +1391,39 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterUpdateCallback(cbfn func(ol
 	var (
 		registrationId cache.ResourceEventHandlerRegistration
 		err error
+		informer       cache.SharedIndexInformer
 	)
+
 	key := "{{$node.CrdName}}"
-	stopper := make(chan struct{})
 	if s, ok := subscriptionMap.Load(key); ok {
-		log.Debugf("[RegisterUpdateCallback] {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Use Subscription Informer")
-        sub := s.(subscription)
-        registrationId,err = sub.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-            UpdateFunc: func(oldObj,newObj interface{}){
-				oldData := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-					client: c.client,
-					{{$node.BaseNodeName}}: oldObj.(*{{$node.GroupBaseImport}}),
-				}
-				newData := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-					client: c.client,
-					{{$node.BaseNodeName}}: newObj.(*{{$node.GroupBaseImport}}),
-				}
-				cbfn(oldData,newData)
-            },
-        })
-    } else {
-		log.Debugf("[RegisterUpdateCallback] {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Create New Informer")
-		informer := {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
-		registrationId,err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-            UpdateFunc: func(oldObj,newObj interface{}){
-				oldData := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-					client: c.client,
-					{{$node.BaseNodeName}}: oldObj.(*{{$node.GroupBaseImport}}),
-				}
-				newData := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-					client: c.client,
-					{{$node.BaseNodeName}}: newObj.(*{{$node.GroupBaseImport}}),
-				}
-				cbfn(oldData,newData)
-            },
-        })
-		go informer.Run(stopper)
+		fmt.Println("Informer exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, so creating a new one")
+		informer = {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		{{if .Parent.HasParent}}
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+		{{end}}
 	}
+
+	registrationId,err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+            UpdateFunc: func(oldObj,newObj interface{}){
+				oldData := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
+					client: c.client,
+					{{$node.BaseNodeName}}: oldObj.(*{{$node.GroupBaseImport}}),
+				}
+				newData := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
+					client: c.client,
+					{{$node.BaseNodeName}}: newObj.(*{{$node.GroupBaseImport}}),
+				}
+				cbfn(oldData,newData)
+            },
+        })
+
 	return registrationId,err
 }
 
@@ -1441,13 +1432,26 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 	var (
 		registrationId cache.ResourceEventHandlerRegistration
 		err error
+		informer       cache.SharedIndexInformer
 	)
+
 	key := "{{$node.CrdName}}"
-	stopper := make(chan struct{})
 	if s, ok := subscriptionMap.Load(key); ok {
-		log.Debugf("[RegisterDeleteCallback] {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Use Subscription Informer")
-        sub := s.(subscription)
-        registrationId,err = sub.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		fmt.Println("Informer exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, so creating a new one")
+		informer = {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		{{if .Parent.HasParent}}
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+		{{end}}
+	}
+
+    registrationId,err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
             DeleteFunc: func(obj interface{}){
 				nc := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 				client: c.client,
@@ -1479,53 +1483,15 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 					}
 					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
 				}
+				if IsChildExists("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name) {
+					RemoveChild("{{.Parent.CrdName}}", parent.Name, "{{$node.CrdName}}", nc.Name)
+				}
 				{{end}}
 
 				cbfn(nc)
 			},
         })
-    } else {
-		log.Debugf("[RegisterDeleteCallback] {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Create New Informer")
-		informer := {{$node.GroupInformerImport}}.New{{$node.BaseNodeName}}Informer(c.client.baseClient, informerResyncPeriod * time.Second, cache.Indexers{})
-		registrationId,err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-            DeleteFunc: func(obj interface{}){
-				nc := &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
-					client: c.client,
-					{{$node.BaseNodeName}}: obj.(*{{$node.GroupBaseImport}}),
-				}
 
-				{{if .Parent.HasParent}}
-				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
-				for i := 0; i < 600; i++ {
-					// Check if parent exists
-					p, err := nc.GetParent(context.TODO())
-					if err != nil || p == nil {
-						time.Sleep(500 * time.Millisecond)
-						continue
-					}
-					parent = p
-					break
-				}
-
-				if parent == nil {
-					hashedName := helper.GetHashedName("{{.Parent.CrdName}}", nc.Labels, nc.Labels["{{.Parent.CrdName}}"])
-					parent, err = c.client.{{.Parent.SimpleGroupTypeName}}().ForceRead{{.Parent.BaseNodeName}}ByName(context.TODO(), hashedName)
-					if err != nil {
-						if errors.IsNotFound(err) {
-							return
-						}
-
-						panic("error occurred while fetching parent " + err.Error())
-					}
-					panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
-				}
-				{{end}}
-
-				cbfn(nc)
-			},
-		})
-		go informer.Run(stopper)
-	}
 	return registrationId,err
 }
 

@@ -96,15 +96,6 @@ endif
 docker.publish:
 	docker push ${COMPILER_DOCKER_TAG}
 
-.PHONY: build
-build:
-	cd cmd/nexus-sdk && \
-		CGO_ENABLED=0 go build -ldflags="-w -s" .
-
-.PHONY: build_in_container
-build_in_container: ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists
-	$(call run_in_container,make build)
-
 .PHONY: tools
 tools:
 	go install github.com/onsi/ginkgo/ginkgo@v1.16.0
@@ -168,7 +159,7 @@ generate_example_in_container:
 	$(call run_in_container, make tools && make generate_example)
 
 .PHONY: test_in_container
-test_in_container: ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists
+test_in_container: docker.builder.image.exists
 	$(call run_in_container, make test)
 
 .PHONY: preparser
