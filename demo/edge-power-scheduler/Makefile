@@ -30,10 +30,12 @@ build: build.amd64 build.darwin
 build.amd64:
 	mkdir -p bin/amd64
 	GOARCH=amd64 GOOS=linux go build -o bin/amd64 ./...
+	cp bin/darwin/* bin/
 
 build.darwin:
 	mkdir -p bin/darwin
 	GOARCH=arm64 GOOS=darwin go build -o bin/darwin ./...
+	cp bin/darwin/* bin/
 
 .PHONY: docker
 docker:
