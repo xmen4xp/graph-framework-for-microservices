@@ -30,8 +30,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"reflect"
 	"k8s.io/client-go/dynamic"
+	fakeDynamicClientset "k8s.io/client-go/dynamic/fake"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime"
 
 {{.HelperImport}}
 {{.CommonImport}}
@@ -48,6 +50,7 @@ const sleepTime = 5
 const maxRetryCount1SecSleep = 300
 
 const ownershipAnnotation string = "Ownership"
+const nexusDeferredDeleteAnnotation string = "nexus.com/nexus-deferred-delete"
 
 // informerResyncPeriod is in second, default value is 10 Hrs(36000 Sec). INFORMER_RESYNC_PERIOD is os env to set Resync Period for informers
 var informerResyncPeriod time.Duration = 36000
@@ -144,7 +147,9 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 // NewFakeClient creates simple client which can be used for unit tests
 func NewFakeClient() *Clientset {
 	client := &Clientset{}
+	scheme := runtime.NewScheme()
 	client.baseClient = fakeBaseClienset.NewSimpleClientset()
+	client.dynamicClient = fakeDynamicClientset.NewSimpleDynamicClient(scheme)
 	{{ range $key, $group := .ApiGroups }}{{$group.InitApiGroups}}{{ end }}
 	return client
 }
@@ -430,6 +435,21 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 		return nil, NewSingletonNameError(objToCreate.Labels[common.DISPLAY_NAME_LABEL])
 	}{{end}}
 
+	{{if $node.DeferredDelete}}
+	log.Debugf("[Create{{$node.BaseNodeName}}ByName] Node is marked for deferred delete: %s", objToCreate.GetName())
+	found := false
+	for _, finalizer := range objToCreate.Finalizers {
+		if finalizer == nexusDeferredDeleteAnnotation {
+			found = true
+			break
+		}
+	}
+	if !found {
+		objToCreate.Finalizers = append(objToCreate.Finalizers, nexusDeferredDeleteAnnotation)
+		log.Debugf("[Create{{$node.BaseNodeName}}ByName] Added %s finalizer to node: %s", nexusDeferredDeleteAnnotation, objToCreate.GetName())
+	}
+	{{end}}
+
 	{{ range $key, $link := .LinksAndChildren }}objToCreate.Spec.{{$link.FieldName}}Gvk = nil
 	{{ end }}
 	var (
@@ -609,6 +629,11 @@ func (group *{{$node.GroupTypeName}}) Update{{$node.BaseNodeName}}ByName(ctx con
 				Value: objToUpdate.Labels,
 			})
 		}
+	    patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	{{ if gt (len .Fields) 0}}
@@ -1289,7 +1314,9 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -1463,7 +1490,9 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 				for i := 0; i < 600; i++ {
 					// Check if parent exists
 					p, err := nc.GetParent(context.TODO())
-					if err != nil || p == nil {
+					if errors.IsNotFound(err) {
+						break
+					} else if err != nil || p == nil {
 						time.Sleep(500 * time.Millisecond)
 						continue
 					}

@@ -171,6 +171,12 @@ func processBody(body *unstructured.Unstructured, nc *NexusContext, crdInfo mode
 	body.SetLabels(labels)
 	body.SetName(hashedName)
 
+	if crdInfo.DeferredDelete {
+		finalizerVal := "nexus.com/nexus-deferred-delete"
+		body.SetFinalizers([]string{finalizerVal})
+		log.Debugf("Object %s is marked for deferred delete, added finalizer %v", body.GetName(), body.GetFinalizers())
+	}
+
 	return body, labels, hashedName, displayName
 }
 
@@ -191,6 +197,7 @@ func KubePostHandler(c echo.Context) error {
 		Version:  "v1",
 		Resource: nc.Resource,
 	}
+	log.Debugf("KubePostHandler: received POST request for %+v", gvr)
 
 	// Get object to check if it exists
 	obj, err := client.GetObject(gvr, hashedName, metav1.GetOptions{})

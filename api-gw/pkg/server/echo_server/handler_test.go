@@ -337,7 +337,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodGet, "/:orgchart.Leader", nil)
@@ -365,7 +365,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodGet, "/root/:orgchart.Root/leader/:management.Leader", nil)
@@ -400,7 +400,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodPost, "/:orgchart.Leader", strings.NewReader(leaderJson))
@@ -434,7 +434,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodPost, "/:orgchart.Leader", strings.NewReader(leaderJson))
@@ -539,7 +539,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodPost, "/:orgchart.Leader", strings.NewReader(leaderJson))
@@ -576,7 +576,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, true, "")
+			[]string{}, nil, nil, true, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(leaderJson))
@@ -640,7 +640,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(leaderJson))
@@ -668,7 +668,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodGet, "/:orgchart.Leader", nil)
@@ -696,7 +696,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodGet, "/:orgchart.Leader/?limit=1", nil)
@@ -724,7 +724,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodGet, "/leader", nil)
@@ -755,7 +755,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodDelete, "/leader", nil)
@@ -783,7 +783,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodDelete, "/leader", nil)
@@ -819,7 +819,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "mgrs.orgchart.vmware.org", "management.Mgr",
-			[]string{}, nil, nil, false, "some description")
+			[]string{}, nil, nil, false, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "mgrs.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodPost, "/mgr/:management.Mgr", strings.NewReader(mgrJson))
@@ -849,7 +849,7 @@ var _ = Describe("Echo server tests", func() {
 		}
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "mgrs.orgchart.vmware.org", "management.Mgr",
-			[]string{}, nil, nil, false, "some description")
+			[]string{}, nil, nil, false, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "mgrs.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		req := httptest.NewRequest(http.MethodDelete, "/leader", nil)
@@ -922,7 +922,7 @@ var _ = Describe("Echo server tests", func() {
 			}
 
 			model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-				n.Hierarchy, n.Children, n.Links, true, "some description")
+				n.Hierarchy, n.Children, n.Links, true, "some description", false)
 			model.ConstructMapURIToCRDType(model.Upsert, "leaders.management.vmware.org", n.NexusRestAPIGen.Uris)
 			model.ConstructMapUriToUriInfo(model.Upsert, urisMap)
 
@@ -992,7 +992,7 @@ var _ = Describe("Echo server tests", func() {
 			}
 
 			model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-				n.Hierarchy, n.Children, n.Links, true, "some description")
+				n.Hierarchy, n.Children, n.Links, true, "some description", false)
 			model.ConstructMapURIToCRDType(model.Upsert, "leaders.management.vmware.org", n.NexusRestAPIGen.Uris)
 			model.ConstructMapUriToUriInfo(model.Upsert, urisMap)
 
@@ -1041,7 +1041,7 @@ var _ = Describe("Echo server tests", func() {
 			}
 
 			model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-				n.Hierarchy, n.Children, n.Links, true, "some description")
+				n.Hierarchy, n.Children, n.Links, true, "some description", false)
 			model.ConstructMapURIToCRDType(model.Upsert, "leaders.management.vmware.org", n.NexusRestAPIGen.Uris)
 			model.ConstructMapUriToUriInfo(model.Upsert, urisMap)
 
@@ -1065,7 +1065,7 @@ var _ = Describe("Echo server tests", func() {
 						FieldNameGvk: "roleGvk",
 						IsNamed:      false,
 					},
-				}, true, "some description")
+				}, true, "some description", false)
 
 			err = putHandler(leaderCtx)
 			Expect(err).NotTo(HaveOccurred())
@@ -1110,7 +1110,7 @@ var _ = Describe("Echo server tests", func() {
 			}
 
 			model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-				n.Hierarchy, n.Children, n.Links, true, "some description")
+				n.Hierarchy, n.Children, n.Links, true, "some description", false)
 			model.ConstructMapURIToCRDType(model.Upsert, "leaders.management.vmware.org", n.NexusRestAPIGen.Uris)
 			model.ConstructMapUriToUriInfo(model.Upsert, urisMap)
 
@@ -1174,7 +1174,7 @@ var _ = Describe("Echo server tests", func() {
 
 			n := constructTestAnnotation()
 			model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-				n.Hierarchy, n.Children, n.Links, true, "some description")
+				n.Hierarchy, n.Children, n.Links, true, "some description", false)
 
 			req := httptest.NewRequest(http.MethodPatch, "/root/:orgchart.Root/leader/:management.Leader", strings.NewReader(patchLeaderJson))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -1267,7 +1267,7 @@ var _ = Describe("Echo server tests", func() {
 		model.ConstructMapUriToUriInfo(model.Upsert, urisMap)
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.management.vmware.org", []nexus.RestURIs{restUriForStatus})
 
 		// =========== status PUT
@@ -1311,7 +1311,7 @@ var _ = Describe("Echo server tests", func() {
 			"/root/:orgchart.Root/leader/:management.Leader", restUri)
 		n := constructTestAnnotation()
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-			[]string{}, n.Children, n.Links, true, "some description")
+			[]string{}, n.Children, n.Links, true, "some description", false)
 		err = getHandler(nc3)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec3.Code).To(Equal(200))
@@ -1432,7 +1432,7 @@ var _ = Describe("Echo server tests", func() {
 		// =========== status PUT
 		e.RegisterRouter(restUri)
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.management.vmware.org", "management.Leader",
-			[]string{}, nil, nil, true, "some description")
+			[]string{}, nil, nil, true, "some description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.management.vmware.org", []nexus.RestURIs{restUriForStatus})
 
 		req1 := httptest.NewRequest(http.MethodPost, targetUri, strings.NewReader(leaderStatusJson))
@@ -1473,7 +1473,7 @@ var _ = Describe("Echo server tests", func() {
 			}
 			e.RegisterRouter(restUri)
 			model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-				[]string{}, nil, nil, false, "some description")
+				[]string{}, nil, nil, false, "some description", false)
 			model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 			req := httptest.NewRequest(http.MethodPost, "/:orgchart.Leader", strings.NewReader(leaderJson))
@@ -1693,7 +1693,7 @@ func constructTestAnnotation() model.NexusAnnotation {
 func initNode(e *EchoServer, crdType, groupName, resourceName, name, method, body, targetURI string, restUri nexus.RestURIs) (*NexusContext, *httptest.ResponseRecorder) {
 	e.RegisterRouter(restUri)
 	model.ConstructMapCRDTypeToNode(model.Upsert, crdType, name,
-		[]string{}, nil, nil, true, "some description")
+		[]string{}, nil, nil, true, "some description", false)
 	model.ConstructMapURIToCRDType(model.Upsert, crdType, []nexus.RestURIs{restUri})
 
 	return createTestNexusContext(e, crdType, groupName, resourceName, name, method, body, targetURI, restUri)

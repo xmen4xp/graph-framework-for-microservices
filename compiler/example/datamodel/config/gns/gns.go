@@ -165,6 +165,7 @@ type Foo struct {
 // nexus-graphql-query:CloudEndpointGraphQLQuerySpec
 // nexus-rest-api-gen:GNSRestAPISpec
 // nexus-description: this is my awesome node
+// nexus-deferred-delete: true
 // specification of GNS.
 type Gns struct {
 	nexus.Node

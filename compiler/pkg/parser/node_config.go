@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	NexusRestApiGenAnnotation  = "nexus-rest-api-gen"
-	NexusDescriptionAnnotation = "nexus-description"
-	NexusGraphqlAnnotation     = "nexus-graphql-query"
-	NexusSecretSpecAnnotation  = "nexus-secret-spec"
-	NexusGraphqlSpecAnnotation = "nexus-graphql-spec"
+	NexusRestApiGenAnnotation     = "nexus-rest-api-gen"
+	NexusDescriptionAnnotation    = "nexus-description"
+	NexusGraphqlAnnotation        = "nexus-graphql-query"
+	NexusSecretSpecAnnotation     = "nexus-secret-spec"
+	NexusGraphqlSpecAnnotation    = "nexus-graphql-spec"
+	NexusDeferredDeleteAnnotation = "nexus-deferred-delete"
 )
 
 func GetNexusSecretSpecAnnotation(pkg Package, name string) (string, bool) {
@@ -34,6 +35,10 @@ func GetNexusDescriptionAnnotation(pkg Package, name string) (string, bool) {
 
 func GetNexusGraphqlAnnotation(pkg Package, name string) (string, bool) {
 	return getNexusAnnotation(pkg, name, NexusGraphqlAnnotation)
+}
+
+func GetNexusDeferredDeleteAnnotation(pkg Package, name string) (string, bool) {
+	return getNexusAnnotation(pkg, name, NexusDeferredDeleteAnnotation)
 }
 
 func GetNexusGraphqlSpecAnnotation(pkg Package, name string) (string, bool) {

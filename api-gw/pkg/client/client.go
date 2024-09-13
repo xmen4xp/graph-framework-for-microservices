@@ -39,7 +39,7 @@ func New(config *rest.Config) (err error) {
 	if kubeApiHostPort, isSpecified := os.LookupEnv("KUBEAPI_ENDPOINT"); isSpecified {
 		parsedURI, err := url.Parse(kubeApiHostPort)
 		if err != nil {
-			return fmt.Errorf("Parsing URI %v failed with error %+v", kubeApiHostPort, err)
+			return fmt.Errorf("parsing URI %v failed with error %+v", kubeApiHostPort, err)
 		}
 
 		if parsedURI.Scheme != "" {
@@ -75,10 +75,15 @@ func NewNexusClient(config *rest.Config) error {
 	return nil
 }
 
-func CreateObject(gvr schema.GroupVersionResource, kind, hashedName string, labels map[string]string, body map[string]interface{}) error {
+func CreateObject(gvr schema.GroupVersionResource, kind, hashedName string, labels map[string]string,
+	body map[string]interface{}, finalizers []string) error {
 	labelsUnstructured := map[string]interface{}{}
 	for k, v := range labels {
 		labelsUnstructured[k] = v
+	}
+	finalizersUnstructured := make([]interface{}, len(finalizers))
+	for i, f := range finalizers {
+		finalizersUnstructured[i] = f
 	}
 
 	obj := &unstructured.Unstructured{
@@ -86,8 +91,9 @@ func CreateObject(gvr schema.GroupVersionResource, kind, hashedName string, labe
 			"apiVersion": gvr.GroupVersion().String(),
 			"kind":       kind,
 			"metadata": map[string]interface{}{
-				"name":   hashedName,
-				"labels": labelsUnstructured,
+				"name":       hashedName,
+				"labels":     labelsUnstructured,
+				"finalizers": finalizersUnstructured,
 			},
 			"spec": body,
 		},

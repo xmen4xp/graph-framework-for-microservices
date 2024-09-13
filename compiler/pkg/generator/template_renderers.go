@@ -10,6 +10,7 @@ import (
 	"go/token"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -369,6 +370,7 @@ type NexusAnnotation struct {
 	IsSingleton     bool                              `json:"is_singleton"`
 	NexusRestAPIGen nexus.RestAPISpec                 `json:"nexus-rest-api-gen,omitempty"`
 	Description     string                            `json:"description,omitempty"`
+	DeferredDelete  bool                              `json:"deferred-delete,omitempty"`
 }
 
 type CrdBaseFile struct {
@@ -407,6 +409,13 @@ func RenderCRDBaseTemplate(baseGroupName string, pkg parser.Package, parentsMap 
 		}
 		if annotation, ok := parser.GetNexusDescriptionAnnotation(pkg, typeName); ok {
 			nexusAnnotation.Description = annotation
+		}
+		if annotation, ok := parser.GetNexusDeferredDeleteAnnotation(pkg, typeName); ok {
+			annotationInBool, err := strconv.ParseBool(annotation)
+			if err != nil {
+				return nil, err
+			}
+			nexusAnnotation.DeferredDelete = annotationInBool
 		}
 
 		nexusAnnotationStr, err := json.Marshal(nexusAnnotation)

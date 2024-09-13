@@ -357,6 +357,11 @@ func putHandler(c echo.Context) error {
 	labels["nexus/display_name"] = name
 	labels[crdInfo.Name] = name
 
+	var finalizers []string
+	if crdInfo.DeferredDelete {
+		finalizers = append(finalizers, "nexus.com/nexus-deferred-delete")
+	}
+
 	// Mangle name
 	hashedName := nexus.GetHashedName(crdName, crdInfo.ParentHierarchy, labels, name)
 	obj, err := client.Client.Resource(gvr).Get(context.TODO(), hashedName, metav1.GetOptions{})
@@ -368,7 +373,7 @@ func putHandler(c echo.Context) error {
 
 			// Build object
 			err = client.CreateObject(gvr,
-				crdNameParts[1], hashedName, labels, body)
+				crdNameParts[1], hashedName, labels, body, finalizers)
 			if err != nil {
 				return handleClientError(nc, err)
 			}

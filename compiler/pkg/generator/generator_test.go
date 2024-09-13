@@ -1,10 +1,12 @@
 package generator_test
 
 import (
+	"encoding/json"
 	"go/format"
 	"os"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/pkg/util"
+	"gopkg.in/yaml.v2"
 
 	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/pkg/parser/rest"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
@@ -111,6 +113,22 @@ var _ = Describe("Template renderers tests", func() {
 		Expect(string(expectedSdk)).To(Or(Equal(files[1].File.String()), Equal(files[2].File.String())))
 	})
 
+	When("nexus-deferred-delete annotation is added in the DSL", func() {
+		It("should set deferred-delete to true in the nexus annotation of the CRD", func() {
+			data, err := os.ReadFile(gnsCrdBasePath)
+			Expect(err).NotTo(HaveOccurred())
+
+			var crd map[string]interface{}
+			Expect(yaml.Unmarshal(data, &crd)).To(Succeed())
+
+			nexus := crd["metadata"].(map[interface{}]interface{})["annotations"].(map[interface{}]interface{})["nexus"].(string)
+
+			var nexusData map[string]interface{}
+			Expect(json.Unmarshal([]byte(nexus), &nexusData)).To(Succeed())
+			Expect(nexusData["deferred-delete"]).To(BeTrue())
+		})
+	})
+
 	It("should parse types template", func() {
 		typesBytes, err := generator.RenderTypesTemplate(crdModulePath, pkg)
 		Expect(err).NotTo(HaveOccurred())
@@ -208,5 +226,4 @@ var _ = Describe("Template renderers tests", func() {
 		err := generator.RenderCRDTemplate(groupName, crdModulePath, pkgs, graph, outputDir, methods, codes, nonNexusTypes, fileset, nil)
 		Expect(err).NotTo(HaveOccurred())
 	})
-
 })

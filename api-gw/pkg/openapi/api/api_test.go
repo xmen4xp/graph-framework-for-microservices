@@ -48,7 +48,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{"roots.orgchart.vmware.org"}, nil, nil, false, "my custom description")
+			[]string{"roots.orgchart.vmware.org"}, nil, nil, false, "my custom description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)
@@ -71,7 +71,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)
@@ -95,7 +95,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)
@@ -121,7 +121,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)
@@ -157,7 +157,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)
@@ -181,7 +181,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)
@@ -208,7 +208,7 @@ var _ = Describe("OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{}, nil, nil, false, "")
+			[]string{}, nil, nil, false, "", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)

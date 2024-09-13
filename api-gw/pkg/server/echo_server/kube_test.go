@@ -238,7 +238,7 @@ var _ = Describe("Kube tests", func() {
 
 		err := echo_server.KubeGetHandler(nc)
 		Expect(err).To(BeNil())
-		expectedResponse := "{\"apiVersion\":\"gns.vmware.org/v1\",\"items\":[{\"apiVersion\":\"gns.vmware.org/v1\",\"kind\":\"GlobalNamespace\",\"metadata\":{\"labels\":{\"nexus/display_name\":\"test\",\"nexus/is_name_hashed\":\"true\",\"roots.root.vmware.org\":\"root\"},\"name\":\"2587591c2e1023ff9498b1b70ac5cbcb84504352\"},\"spec\":{\"foo\":\"bar\"}}],\"kind\":\"GlobalNamespaceList\",\"metadata\":{\"resourceVersion\":\"\"}}\n"
+		expectedResponse := "{\"apiVersion\":\"gns.vmware.org/v1\",\"items\":[{\"apiVersion\":\"gns.vmware.org/v1\",\"kind\":\"GlobalNamespace\",\"metadata\":{\"labels\":{\"nexus/display_name\":\"test\",\"nexus/is_name_hashed\":\"true\",\"roots.root.vmware.org\":\"root\"},\"name\":\"2587591c2e1023ff9498b1b70ac5cbcb84504352\"},\"spec\":{\"foo\":\"bar\"}}],\"kind\":\"GlobalNamespaceList\",\"metadata\":{\"continue\":\"\",\"resourceVersion\":\"\"}}\n"
 		Expect(rec.Body.String()).To(Equal(expectedResponse))
 	})
 

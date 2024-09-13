@@ -39,6 +39,7 @@ type NexusAnnotation struct {
 	NexusRestAPIMappings map[string]string          `json:"nexus-rest-api-mappings,omitempty"`
 	IsSingleton          bool                       `json:"is_singleton,omitempty"`
 	Description          string                     `json:"description,omitempty"`
+	DeferredDelete       bool                       `json:"deferred-delete,omitempty"`
 }
 
 type NodeHelperChild struct {
@@ -54,6 +55,7 @@ type NodeInfo struct {
 	Links           map[string]NodeHelperChild
 	IsSingleton     bool
 	Description     string
+	DeferredDelete  bool
 }
 
 type RestUriInfo struct {

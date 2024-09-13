@@ -28,9 +28,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+	fakeDynamicClientset "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
 	cache "k8s.io/client-go/tools/cache"
 
@@ -59,6 +61,7 @@ const sleepTime = 5
 const maxRetryCount1SecSleep = 300
 
 const ownershipAnnotation string = "Ownership"
+const nexusDeferredDeleteAnnotation string = "nexus.com/nexus-deferred-delete"
 
 // informerResyncPeriod is in second, default value is 10 Hrs(36000 Sec). INFORMER_RESYNC_PERIOD is os env to set Resync Period for informers
 var informerResyncPeriod time.Duration = 36000
@@ -325,7 +328,9 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 // NewFakeClient creates simple client which can be used for unit tests
 func NewFakeClient() *Clientset {
 	client := &Clientset{}
+	scheme := runtime.NewScheme()
 	client.baseClient = fakeBaseClienset.NewSimpleClientset()
+	client.dynamicClient = fakeDynamicClientset.NewSimpleDynamicClient(scheme)
 	client.rootTsmV1 = newRootTsmV1(client)
 	client.configTsmV1 = newConfigTsmV1(client)
 	client.gnsTsmV1 = newGnsTsmV1(client)
@@ -730,6 +735,11 @@ func (group *RootTsmV1) UpdateRootByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	marshaled, err := patch.Marshal()
@@ -1582,6 +1592,11 @@ func (group *ConfigTsmV1) UpdateConfigByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -2545,7 +2560,9 @@ func (c *configConfigTsmV1Chainer) RegisterEventHandler(addCB func(obj *ConfigCo
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -2713,7 +2730,9 @@ func (c *configConfigTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *ConfigC
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -3364,6 +3383,11 @@ func (group *ConfigTsmV1) UpdateFooTypeABCByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -3748,7 +3772,9 @@ func (c *footypeabcConfigTsmV1Chainer) RegisterEventHandler(addCB func(obj *Conf
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -3916,7 +3942,9 @@ func (c *footypeabcConfigTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *Con
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -4279,6 +4307,11 @@ func (group *ConfigTsmV1) UpdateDomainByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -4726,7 +4759,9 @@ func (c *domainConfigTsmV1Chainer) RegisterEventHandler(addCB func(obj *ConfigDo
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -4894,7 +4929,9 @@ func (c *domainConfigTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *ConfigD
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -5257,6 +5294,11 @@ func (group *GnsTsmV1) UpdateFooByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -5536,7 +5578,9 @@ func (c *fooGnsTsmV1Chainer) RegisterEventHandler(addCB func(obj *GnsFoo), updat
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -5704,7 +5748,9 @@ func (c *fooGnsTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *GnsFoo)) (cac
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -6010,6 +6056,19 @@ func (group *GnsTsmV1) CreateGnsByName(ctx context.Context,
 		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
 	}
 
+	log.Debugf("[CreateGnsByName] Node is marked for deferred delete: %s", objToCreate.GetName())
+	found := false
+	for _, finalizer := range objToCreate.Finalizers {
+		if finalizer == nexusDeferredDeleteAnnotation {
+			found = true
+			break
+		}
+	}
+	if !found {
+		objToCreate.Finalizers = append(objToCreate.Finalizers, nexusDeferredDeleteAnnotation)
+		log.Debugf("[CreateGnsByName] Added %s finalizer to node: %s", nexusDeferredDeleteAnnotation, objToCreate.GetName())
+	}
+
 	objToCreate.Spec.GnsServiceGroupsGvk = nil
 	objToCreate.Spec.GnsAccessControlPolicyGvk = nil
 	objToCreate.Spec.FooChildGvk = nil
@@ -6188,6 +6247,11 @@ func (group *GnsTsmV1) UpdateGnsByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -7281,7 +7345,9 @@ func (c *gnsGnsTsmV1Chainer) RegisterEventHandler(addCB func(obj *GnsGns), updat
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -7449,7 +7515,9 @@ func (c *gnsGnsTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *GnsGns)) (cac
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -8094,6 +8162,11 @@ func (group *GnsTsmV1) UpdateBarChildByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -8373,7 +8446,9 @@ func (c *barchildGnsTsmV1Chainer) RegisterEventHandler(addCB func(obj *GnsBarChi
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -8541,7 +8616,9 @@ func (c *barchildGnsTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *GnsBarCh
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -8904,6 +8981,11 @@ func (group *GnsTsmV1) UpdateIgnoreChildByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -9183,7 +9265,9 @@ func (c *ignorechildGnsTsmV1Chainer) RegisterEventHandler(addCB func(obj *GnsIgn
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -9351,7 +9435,9 @@ func (c *ignorechildGnsTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *GnsIg
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -9723,6 +9809,11 @@ func (group *GnsTsmV1) UpdateDnsByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	marshaled, err := patch.Marshal()
@@ -9979,7 +10070,9 @@ func (c *dnsGnsTsmV1Chainer) RegisterEventHandler(addCB func(obj *GnsDns), updat
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -10147,7 +10240,9 @@ func (c *dnsGnsTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *GnsDns)) (cac
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -10510,6 +10605,11 @@ func (group *ServicegroupTsmV1) UpdateSvcGroupByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -10831,7 +10931,9 @@ func (c *svcgroupServicegroupTsmV1Chainer) RegisterEventHandler(addCB func(obj *
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -10999,7 +11101,9 @@ func (c *svcgroupServicegroupTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj 
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -11362,6 +11466,11 @@ func (group *ServicegroupTsmV1) UpdateSvcGroupLinkInfoByName(ctx context.Context
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -11704,7 +11813,9 @@ func (c *svcgrouplinkinfoServicegroupTsmV1Chainer) RegisterEventHandler(addCB fu
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -11872,7 +11983,9 @@ func (c *svcgrouplinkinfoServicegroupTsmV1Chainer) RegisterDeleteCallback(cbfn f
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -12245,6 +12358,11 @@ func (group *PolicypkgTsmV1) UpdateAccessControlPolicyByName(ctx context.Context
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	marshaled, err := patch.Marshal()
@@ -12627,7 +12745,9 @@ func (c *accesscontrolpolicyPolicypkgTsmV1Chainer) RegisterEventHandler(addCB fu
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -12795,7 +12915,9 @@ func (c *accesscontrolpolicyPolicypkgTsmV1Chainer) RegisterDeleteCallback(cbfn f
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -13282,6 +13404,11 @@ func (group *PolicypkgTsmV1) UpdateACPConfigByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	var rt reflect.Type
@@ -13823,7 +13950,9 @@ func (c *acpconfigPolicypkgTsmV1Chainer) RegisterEventHandler(addCB func(obj *Po
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -13991,7 +14120,9 @@ func (c *acpconfigPolicypkgTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *P
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -14386,6 +14517,11 @@ func (group *PolicypkgTsmV1) UpdateVMpolicyByName(ctx context.Context,
 				Value: objToUpdate.Labels,
 			})
 		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
 	}
 
 	marshaled, err := patch.Marshal()
@@ -14642,7 +14778,9 @@ func (c *vmpolicyPolicypkgTsmV1Chainer) RegisterEventHandler(addCB func(obj *Pol
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}
@@ -14810,7 +14948,9 @@ func (c *vmpolicyPolicypkgTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *Po
 			for i := 0; i < 600; i++ {
 				// Check if parent exists
 				p, err := nc.GetParent(context.TODO())
-				if err != nil || p == nil {
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
 					time.Sleep(500 * time.Millisecond)
 					continue
 				}

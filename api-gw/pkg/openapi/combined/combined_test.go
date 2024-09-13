@@ -6,6 +6,7 @@ import (
 	"api-gw/pkg/openapi/combined"
 	"api-gw/pkg/openapi/declarative"
 	"encoding/json"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	yamlv1 "github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
@@ -55,7 +56,7 @@ var _ = Describe("Combined OpenAPI tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		model.ConstructMapCRDTypeToNode(model.Upsert, "leaders.orgchart.vmware.org", "orgchart.Leader",
-			[]string{"roots.orgchart.vmware.org"}, nil, nil, false, "my custom description")
+			[]string{"roots.orgchart.vmware.org"}, nil, nil, false, "my custom description", false)
 		model.ConstructMapURIToCRDType(model.Upsert, "leaders.orgchart.vmware.org", []nexus.RestURIs{restUri})
 
 		model.ConstructMapCRDTypeToSpec(model.Upsert, "leaders.orgchart.vmware.org", crd.Spec)

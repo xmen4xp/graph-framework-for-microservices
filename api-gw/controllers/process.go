@@ -53,7 +53,7 @@ func (r *CustomResourceDefinitionReconciler) ProcessAnnotation(crdType string,
 	// It has stored the URI with the CRD type and CRD type with the Node Info.
 	model.ConstructMapUriToUriInfo(eventType, urisMap)
 	model.ConstructMapURIToCRDType(eventType, crdType, n.NexusRestAPIGen.Uris)
-	model.ConstructMapCRDTypeToNode(eventType, crdType, n.Name, n.Hierarchy, children, links, n.IsSingleton, n.Description)
+	model.ConstructMapCRDTypeToNode(eventType, crdType, n.Name, n.Hierarchy, children, links, n.IsSingleton, n.Description, n.DeferredDelete)
 	model.ConstructMapCRDTypeToRestUris(eventType, crdType, n.NexusRestAPIGen)
 
 	// Restart echo server
