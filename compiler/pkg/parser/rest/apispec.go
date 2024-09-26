@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/pkg/config"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/pkg/parser"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
 )
@@ -96,6 +97,11 @@ func ValidateRestApiSpec(apiSpec nexus.RestAPISpec, parentsMap map[string]parser
 	r := regexp.MustCompile(`{([^{}]+)}`)
 	crdHelper := parentsMap[crdName]
 
+	ignoredParentPathParams := make(map[string]struct{})
+	for _, val := range config.ConfigInstance.IgnoredParentPathParams {
+		ignoredParentPathParams[val] = struct{}{}
+	}
+
 	for _, uri := range apiSpec.Uris {
 		uriRegex, _ := regexp.Compile("{.*?}")
 		redactedUri := uriRegex.ReplaceAllString(uri.Uri, "{param}")
@@ -130,7 +136,11 @@ func ValidateRestApiSpec(apiSpec nexus.RestAPISpec, parentsMap map[string]parser
 			}
 
 			if !nodeExist(parentName, uriParams) && !queryParamExist(parentName, uri.QueryParams) {
-				log.Fatalf("RestApiSpec: Provided node name (%s) not found for uri: %s", parentName, uri.Uri)
+				if _, exists := ignoredParentPathParams[parentName]; exists {
+					log.Warnf("RestApiSpec: Provided node name (%s) not found for uri: %s. Ignoring and proceeding, as it is configured as ignored parent path param", parentName, uri.Uri)
+				} else {
+					log.Fatalf("RestApiSpec: Provided node name (%s) not found for uri: %s", parentName, uri.Uri)
+				}
 			}
 		}
 

@@ -57,7 +57,7 @@ var informerResyncPeriod time.Duration = 36000
 
 type Clientset struct {
 	baseClient baseClientset.Interface
-	dynamicClient               *dynamic.DynamicClient
+	dynamicClient               dynamic.Interface
 	{{ range $key, $group := .ApiGroups }}{{$group.ClientsetApiGroups}}{{ end }}
 }
 

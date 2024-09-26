@@ -20,7 +20,7 @@ package fake
 
 import (
 	"context"
-	gnstsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/gns.tsm.tanzu.vmware.com/v1"
+	gnstsmtanzuvmwarecomv1 "nexustempmodule/apis/gns.tsm.tanzu.vmware.com/v1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"

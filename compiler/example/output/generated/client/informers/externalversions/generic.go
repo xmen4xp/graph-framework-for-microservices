@@ -20,11 +20,11 @@ package externalversions
 
 import (
 	"fmt"
-	v1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/config.tsm.tanzu.vmware.com/v1"
-	gnstsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/gns.tsm.tanzu.vmware.com/v1"
-	policypkgtsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/policypkg.tsm.tanzu.vmware.com/v1"
-	roottsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/root.tsm.tanzu.vmware.com/v1"
-	servicegrouptsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/servicegroup.tsm.tanzu.vmware.com/v1"
+	v1 "nexustempmodule/apis/config.tsm.tanzu.vmware.com/v1"
+	gnstsmtanzuvmwarecomv1 "nexustempmodule/apis/gns.tsm.tanzu.vmware.com/v1"
+	policypkgtsmtanzuvmwarecomv1 "nexustempmodule/apis/policypkg.tsm.tanzu.vmware.com/v1"
+	roottsmtanzuvmwarecomv1 "nexustempmodule/apis/root.tsm.tanzu.vmware.com/v1"
+	servicegrouptsmtanzuvmwarecomv1 "nexustempmodule/apis/servicegroup.tsm.tanzu.vmware.com/v1"
 
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"

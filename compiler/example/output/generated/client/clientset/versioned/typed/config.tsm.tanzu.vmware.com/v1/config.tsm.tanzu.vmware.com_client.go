@@ -20,8 +20,8 @@ package v1
 
 import (
 	"net/http"
-	v1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/config.tsm.tanzu.vmware.com/v1"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/clientset/versioned/scheme"
+	v1 "nexustempmodule/apis/config.tsm.tanzu.vmware.com/v1"
+	"nexustempmodule/client/clientset/versioned/scheme"
 
 	rest "k8s.io/client-go/rest"
 )

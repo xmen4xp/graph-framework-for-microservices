@@ -8,7 +8,7 @@ import (
 
 	"github.com/elliotchance/orderedmap"
 
-	datamodel "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/clientset/versioned"
+	datamodel "nexustempmodule/client/clientset/versioned"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

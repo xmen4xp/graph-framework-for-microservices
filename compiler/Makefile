@@ -245,7 +245,7 @@ generate_code:
 	@echo "Nexus Compiler: Compiler code generation completed"
 
 .PHONY: test_generate_code_in_container
-test_generate_code_in_container: ${BUILDER_NAME}\:${BUILDER_TAG}.image.exists init_submodules
+test_generate_code_in_container: docker.builder.image.exists init_submodules
 	$(call run_in_container, go install ../kube-openapi/cmd/nexus-openapi-gen && \
 	cd ../gqlgen && go install && cd - && \
 	make generate_code DATAMODEL_PATH=example/datamodel \

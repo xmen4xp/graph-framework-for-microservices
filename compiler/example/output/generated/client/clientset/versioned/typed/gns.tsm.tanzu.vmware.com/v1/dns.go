@@ -20,8 +20,8 @@ package v1
 
 import (
 	"context"
-	v1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/gns.tsm.tanzu.vmware.com/v1"
-	scheme "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/clientset/versioned/scheme"
+	v1 "nexustempmodule/apis/gns.tsm.tanzu.vmware.com/v1"
+	scheme "nexustempmodule/client/clientset/versioned/scheme"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -9,6 +9,7 @@ import (
 	service_group "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/datamodel/config/gns/service-group"
 	policypkg "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/datamodel/config/policy"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/nexus/nexus"
+	optional_parent_path_param "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/datamodel/config/gns/optionalparentpathparam"
 )
 
 var FooCustomMethodsResponses = nexus.HTTPMethodsResponses{
@@ -198,6 +199,7 @@ type Gns struct {
 	ServiceSegmentRefPointer *ServiceSegmentRef           `json:"serviceSegmentRefPointer,omitempty"`
 	ServiceSegmentRefs       []ServiceSegmentRef          `json:"serviceSegmentRefs,omitempty"`
 	ServiceSegmentRefMap     map[string]ServiceSegmentRef `json:"serviceSegmentRefMap,omitempty"`
+	TestOptionalParentPathParamChild optional_parent_path_param.OptionalParentPathParam `nexus:"children"`
 }
 
 type ServiceSegmentRef struct {

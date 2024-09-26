@@ -19,7 +19,7 @@ limitations under the License.
 package internalinterfaces
 
 import (
-	versioned "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/clientset/versioned"
+	versioned "nexustempmodule/client/clientset/versioned"
 	time "time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

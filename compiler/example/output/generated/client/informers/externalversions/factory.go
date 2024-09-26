@@ -19,13 +19,13 @@ limitations under the License.
 package externalversions
 
 import (
-	versioned "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/clientset/versioned"
-	configtsmtanzuvmwarecom "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/config.tsm.tanzu.vmware.com"
-	gnstsmtanzuvmwarecom "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/gns.tsm.tanzu.vmware.com"
-	internalinterfaces "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/internalinterfaces"
-	policypkgtsmtanzuvmwarecom "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/policypkg.tsm.tanzu.vmware.com"
-	roottsmtanzuvmwarecom "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/root.tsm.tanzu.vmware.com"
-	servicegrouptsmtanzuvmwarecom "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/servicegroup.tsm.tanzu.vmware.com"
+	versioned "nexustempmodule/client/clientset/versioned"
+	configtsmtanzuvmwarecom "nexustempmodule/client/informers/externalversions/config.tsm.tanzu.vmware.com"
+	gnstsmtanzuvmwarecom "nexustempmodule/client/informers/externalversions/gns.tsm.tanzu.vmware.com"
+	internalinterfaces "nexustempmodule/client/informers/externalversions/internalinterfaces"
+	policypkgtsmtanzuvmwarecom "nexustempmodule/client/informers/externalversions/policypkg.tsm.tanzu.vmware.com"
+	roottsmtanzuvmwarecom "nexustempmodule/client/informers/externalversions/root.tsm.tanzu.vmware.com"
+	servicegrouptsmtanzuvmwarecom "nexustempmodule/client/informers/externalversions/servicegroup.tsm.tanzu.vmware.com"
 	reflect "reflect"
 	sync "sync"
 	time "time"

@@ -19,11 +19,11 @@ limitations under the License.
 package scheme
 
 import (
-	configtsmv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/config.tsm.tanzu.vmware.com/v1"
-	gnstsmv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/gns.tsm.tanzu.vmware.com/v1"
-	policypkgtsmv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/policypkg.tsm.tanzu.vmware.com/v1"
-	roottsmv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/root.tsm.tanzu.vmware.com/v1"
-	servicegrouptsmv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/servicegroup.tsm.tanzu.vmware.com/v1"
+	configtsmv1 "nexustempmodule/apis/config.tsm.tanzu.vmware.com/v1"
+	gnstsmv1 "nexustempmodule/apis/gns.tsm.tanzu.vmware.com/v1"
+	policypkgtsmv1 "nexustempmodule/apis/policypkg.tsm.tanzu.vmware.com/v1"
+	roottsmv1 "nexustempmodule/apis/root.tsm.tanzu.vmware.com/v1"
+	servicegrouptsmv1 "nexustempmodule/apis/servicegroup.tsm.tanzu.vmware.com/v1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"

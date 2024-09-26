@@ -20,10 +20,10 @@ package v1
 
 import (
 	"context"
-	servicegrouptsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/servicegroup.tsm.tanzu.vmware.com/v1"
-	versioned "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/clientset/versioned"
-	internalinterfaces "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/listers/servicegroup.tsm.tanzu.vmware.com/v1"
+	servicegrouptsmtanzuvmwarecomv1 "nexustempmodule/apis/servicegroup.tsm.tanzu.vmware.com/v1"
+	versioned "nexustempmodule/client/clientset/versioned"
+	internalinterfaces "nexustempmodule/client/informers/externalversions/internalinterfaces"
+	v1 "nexustempmodule/client/listers/servicegroup.tsm.tanzu.vmware.com/v1"
 	time "time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

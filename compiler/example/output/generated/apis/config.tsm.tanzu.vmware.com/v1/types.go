@@ -3,11 +3,11 @@
 package v1
 
 import (
-	gnstsmtanzuvmwarecomv1 "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/apis/gns.tsm.tanzu.vmware.com/v1"
+	gnstsmtanzuvmwarecomv1 "nexustempmodule/apis/gns.tsm.tanzu.vmware.com/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/common"
+	"nexustempmodule/common"
 )
 
 // +k8s:openapi-gen=true

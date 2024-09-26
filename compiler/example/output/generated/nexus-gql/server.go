@@ -1,14 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 
-	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/nexus-gql/graph"
-	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/nexus-gql/graph/generated"
-
+	"nexustempmodule/nexus-gql/graph"
+	"nexustempmodule/nexus-gql/graph/generated"
 	"github.com/rs/cors"
+	"github.com/vmware-tanzu/graph-framework-for-microservices/gqlgen/graphql"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/gqlgen/graphql/handler"
 	"github.com/vmware-tanzu/graph-framework-for-microservices/gqlgen/graphql/playground"
 )
@@ -35,6 +33,6 @@ func main() {
 	StartHttpServer()
 	srv := &http.Server{Addr: fmt.Sprintf(":%s", port)}
 	if err := srv.ListenAndServe(); err != nil {
-		fmt.Printf("Error in starting graphql server")
+				fmt.Printf("Error in starting graphql server")
 	}
 }

@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/common"
+	"nexustempmodule/common"
 )
 
 // +k8s:openapi-gen=true

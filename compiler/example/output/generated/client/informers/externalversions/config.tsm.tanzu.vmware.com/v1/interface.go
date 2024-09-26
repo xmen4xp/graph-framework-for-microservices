@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	internalinterfaces "github.com/vmware-tanzu/graph-framework-for-microservices/compiler/example/output/generated/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "nexustempmodule/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.
