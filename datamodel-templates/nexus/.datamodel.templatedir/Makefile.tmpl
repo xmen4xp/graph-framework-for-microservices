@@ -4,6 +4,7 @@ CONTAINER_ID ?= ""
 DATAMODEL_LOCAL_PATH ?= $(realpath .)
 BUCKET ?= nexus-template-downloads
 COMPILER_TAG ?= latest
+OPENAPI_GENERATOR_TAG ?= latest
 VERSION ?= $(shell git rev-parse --verify HEAD 2>/dev/null)
 DATAMODEL_DOCKER_REGISTRY ?= $(shell cat nexus.yaml | grep dockerRepo | awk '{print $$2}' | tr -d '"')
 DATAMODEL_GROUP_NAME ?= $(shell cat nexus.yaml | grep groupName | awk '{print $$2}' | tr -d '"')
@@ -52,10 +53,14 @@ COMPILER_DOCKER_REGISTRY ?= amr-registry-pre.caas.intel.com
 IMAGE_NAME ?= nexus/compiler
 GOARCH ?= $(shell go env GOARCH)
 COMPILER_NAME ?= ${IMAGE_NAME}/${GOARCH}
+OPENAPI_GENERATOR_NAME ?= nexus/openapi-generator
 ifeq (${COMPILER_DOCKER_REGISTRY}, )
 COMPILER_DOCKER_TAG = ${COMPILER_NAME}:${COMPILER_TAG}
+OPENAPI_GENERATOR_DOCKER_TAG = ${OPENAPI_GENERATOR_NAME}:${OPENAPI_GENERATOR_TAG}
 else
 COMPILER_DOCKER_TAG = ${COMPILER_DOCKER_REGISTRY}/${COMPILER_NAME}:${COMPILER_TAG}
+OPENAPI_GENERATOR_DOCKER_TAG = ${COMPILER_DOCKER_REGISTRY}/${OPENAPI_GENERATOR_NAME}:${OPENAPI_GENERATOR_TAG}
+OPENAPI_GENERATOR_DOCKER_TAG = ${COMPILER_DOCKER_REGISTRY}/${OPENAPI_GENERATOR_NAME}:${OPENAPI_GENERATOR_TAG}
 endif
 
 .PHONY: datamodel_build
@@ -102,6 +107,17 @@ datamodel_build:
 			-e FORCE=$(FORCE) \
 			${COMPILER_DOCKER_TAG}; \
 	fi
+	make openapispec.generate
+
+.PHONY: openapispec.generate
+openapispec.generate:
+       docker run \
+               --net ${DOCKER_NETWORK} \
+               --pull=missing \
+               --mount type=bind,source=$(realpath .),target=/datamodel \
+               --entrypoint /bin/openapi-generator \
+               ${OPENAPI_GENERATOR_DOCKER_TAG} \
+               --yamls-path /datamodel/build/crds --datamodel-path /datamodel/nexus.yaml --datamodel-name ${DATAMODEL_GROUP_NAME} --output-file-path /datamodel/build/openapi/infra-host.com.json
 
 #
 # Usage: DATAMODEL_DOCKER_REGISTRY=<registry> TAG=<tag-value> make docker.build

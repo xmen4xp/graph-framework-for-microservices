@@ -60,6 +60,7 @@ api/build/*
 # api-gw artifacts
 api-gw/api-gw
 api-gw/bin/*
+api-gw/cmd/openapi-generator/test/_generated/*
 
 # k0s artifacts
 nexus-runtime-manifests/k0s/.kubeconfig

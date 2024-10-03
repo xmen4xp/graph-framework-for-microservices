@@ -3,9 +3,6 @@ package api
 import (
 	"api-gw/pkg/model"
 	"api-gw/pkg/utils"
-	"crypto/sha1"
-	"encoding/hex"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -18,7 +15,10 @@ import (
 
 var Schemas = make(map[string]openapi3.T)
 
+var pathParamRegex, _ = regexp.Compile("{.*}")
+
 func New(datamodel string) {
+
 	// Check if datamodel info is present
 	title := "Nexus API GW APIs"
 	if info, ok := model.DatamodelToDatamodelInfo[datamodel]; ok {
@@ -87,19 +87,38 @@ func DatamodelUpdateNotification() {
 	}
 }
 
+// Construct description for a method + uri combo.
+//
+// Description field in the openapi spec is constructed by using the method and the uri as the input.
+// The goal is to construct a description that is unique in an openapi spec.
+// Some code generators use this description field as the method name in their generated code.
+// So the description field should be constructed without special characters.
+func getDescription(method, uri string) string {
+	uriParts := strings.Split(uri, "/")
+	description := method
+	for _, path := range uriParts {
+		if pathParamRegex.MatchString(path) {
+			// Strip away the braces from path params, so we can use them.
+			p := strings.Replace(path, "{", "", -1)
+			p = strings.Replace(p, "}", "", -1)
+			description = description + "_" + strings.Replace(p, ".", "_", -1)
+		} else {
+			description = description + "_" + path
+		}
+	}
+	return description
+}
+
 // AddPath creates and adds paths for all the methods of a URI
 func AddPath(uri nexus.RestURIs, datamodel string) {
 	crdType := model.UriToCRDType[uri.Uri]
 	crdInfo := model.CrdTypeToNodeInfo[crdType]
 	parseSpec(crdType, datamodel)
 
-	h := sha1.New()
-
 	params := parseUriParams(uri.Uri, crdInfo.ParentHierarchy)
 	pathItem := &openapi3.PathItem{}
 	for method := range uri.Methods {
-		h.Write([]byte(fmt.Sprintf("%s%s", method, uri.Uri)))
-		opId := hex.EncodeToString(h.Sum(nil))
+		opId := getDescription(string(method), uri.Uri)
 		nameParts := strings.Split(crdInfo.Name, ".")
 
 		switch method {
@@ -405,6 +424,11 @@ func parseUriParams(uri string, hierarchy []string) (parameters []*openapi3.Para
 		if crdInfo.IsSingleton {
 			continue
 		}
+
+		if _, ok := utils.OpenApiIgnoredParentPathParams[crdInfo.Name]; ok {
+			continue
+		}
+
 		var description string
 		if crdInfo.Description != "" {
 			description = crdInfo.Description

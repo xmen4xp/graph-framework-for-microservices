@@ -8,12 +8,14 @@ import (
 	"api-gw/pkg/model"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,6 +31,12 @@ type EnvoyCluster struct {
 }
 
 const DISPLAY_NAME_LABEL = "nexus/display_name"
+
+type DatamodelConfig struct {
+	IgnoredParentPathParams []string `yaml:"ignoredParentPathParams"`
+}
+
+var OpenApiIgnoredParentPathParams map[string]struct{} = make(map[string]struct{})
 
 func IsFileExists(filename string) bool {
 	info, err := os.Stat(filename)
@@ -182,5 +190,27 @@ func ConstructGVR(crdType string) schema.GroupVersionResource {
 		Group:    strings.Join(parts[1:], "."),
 		Version:  "v1",
 		Resource: parts[0],
+	}
+}
+
+func InitOpenApiIgnoredParentPathParams(configFile string) {
+	var config DatamodelConfig
+	file, err := os.Open(configFile)
+	if err != nil {
+		log.Fatalf("failed to open config file %s with error %s", configFile, err)
+	}
+	configStr, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatalf("failed to read config file %s with error %s", configFile, err)
+	}
+
+	err = yaml.Unmarshal(configStr, &config)
+	if err != nil {
+		log.Fatalf("failed to unmarshal config file %s with error %s", configFile, err)
+	}
+
+	for _, param := range config.IgnoredParentPathParams {
+		OpenApiIgnoredParentPathParams[param] = struct{}{}
+		fmt.Println("adding ignored param :", param)
 	}
 }

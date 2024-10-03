@@ -5,7 +5,7 @@ ARG API_GW_COMPONENT_NAME
 WORKDIR /app
 COPY . .
 WORKDIR /app/api-gw
-RUN go mod tidy && go mod download && GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME} 
+RUN go mod tidy && go mod download && GOOS=linux GOARCH=amd64 go build -buildvcs=false -o bin/${API_GW_COMPONENT_NAME} ./cmd/api-gw
 
 FROM gcr.io/nsx-sm/photon:4.0
 WORKDIR /bin

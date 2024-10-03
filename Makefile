@@ -20,11 +20,13 @@ ARCH ?= $(shell go env GOARCH)
 DOCKER_BUILDER_PLATFORM ?= linux/${ARCH}
 ADMIN_DATAMODEL_DEFAULT_RUN_TAG ?= latest
 API_GW_DEFAULT_RUN_TAG ?= latest
+OPENAPI_GENERATOR_COMPONENT_NAME ?= openapi-generator
 
 KIND_API_GW_PORT=$(shell expr ${CLUSTER_PORT} + 1)
 API_GW_COMPONENT_NAME ?= api-gw
 API_GW_DOCKER_IMAGE ?= ${DOCKER_REGISTRY}/nexus/${API_GW_COMPONENT_NAME}:${TAG}
 API_GW_RUN_DOCKER_IMAGE ?= ${DOCKER_REGISTRY}/nexus/${API_GW_COMPONENT_NAME}:${API_GW_DEFAULT_RUN_TAG}
+OPENAPI_GENERATOR_DOCKER_IMAGE?= ${DOCKER_REGISTRY}/nexus/${OPENAPI_GENERATOR_COMPONENT_NAME}:${TAG}
 
 .PHONY: check.prereq.git
 check.prereq.git:
@@ -263,6 +265,13 @@ endif
 api-gw.kind.stop:
 	docker rm -f nexus-api-gw-${CLUSTER_NAME} > /dev/null || true
 
+.PHONY: openapi.generator.docker
+openapi.generator.docker:
+	docker build -t ${OPENAPI_GENERATOR_DOCKER_IMAGE} -f api-gw/Dockerfile.openapi-generator .
+
+.PHONY: openapi.generator.docker.publish
+openapi.generator.docker.publish:
+	docker push ${OPENAPI_GENERATOR_DOCKER_IMAGE}
 
 .PHONY: runtime.build
 runtime.build: api.build api-gw.docker
