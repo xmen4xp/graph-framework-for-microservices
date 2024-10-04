@@ -43,12 +43,14 @@ import (
 
 	baseconfigtsmtanzuvmwarecomv1 "nexustempmodule/apis/config.tsm.tanzu.vmware.com/v1"
 	basegnstsmtanzuvmwarecomv1 "nexustempmodule/apis/gns.tsm.tanzu.vmware.com/v1"
+	baseoptionalparentpathparamtsmtanzuvmwarecomv1 "nexustempmodule/apis/optionalparentpathparam.tsm.tanzu.vmware.com/v1"
 	basepolicypkgtsmtanzuvmwarecomv1 "nexustempmodule/apis/policypkg.tsm.tanzu.vmware.com/v1"
 	baseroottsmtanzuvmwarecomv1 "nexustempmodule/apis/root.tsm.tanzu.vmware.com/v1"
 	baseservicegrouptsmtanzuvmwarecomv1 "nexustempmodule/apis/servicegroup.tsm.tanzu.vmware.com/v1"
 
 	informerconfigtsmtanzuvmwarecomv1 "nexustempmodule/client/informers/externalversions/config.tsm.tanzu.vmware.com/v1"
 	informergnstsmtanzuvmwarecomv1 "nexustempmodule/client/informers/externalversions/gns.tsm.tanzu.vmware.com/v1"
+	informeroptionalparentpathparamtsmtanzuvmwarecomv1 "nexustempmodule/client/informers/externalversions/optionalparentpathparam.tsm.tanzu.vmware.com/v1"
 	informerpolicypkgtsmtanzuvmwarecomv1 "nexustempmodule/client/informers/externalversions/policypkg.tsm.tanzu.vmware.com/v1"
 	informerroottsmtanzuvmwarecomv1 "nexustempmodule/client/informers/externalversions/root.tsm.tanzu.vmware.com/v1"
 	informerservicegrouptsmtanzuvmwarecomv1 "nexustempmodule/client/informers/externalversions/servicegroup.tsm.tanzu.vmware.com/v1"
@@ -67,13 +69,14 @@ const nexusDeferredDeleteAnnotation string = "nexus.com/nexus-deferred-delete"
 var informerResyncPeriod time.Duration = 36000
 
 type Clientset struct {
-	baseClient        baseClientset.Interface
-	dynamicClient     *dynamic.DynamicClient
-	rootTsmV1         *RootTsmV1
-	configTsmV1       *ConfigTsmV1
-	gnsTsmV1          *GnsTsmV1
-	servicegroupTsmV1 *ServicegroupTsmV1
-	policypkgTsmV1    *PolicypkgTsmV1
+	baseClient                   baseClientset.Interface
+	DynamicClient                dynamic.Interface
+	rootTsmV1                    *RootTsmV1
+	configTsmV1                  *ConfigTsmV1
+	gnsTsmV1                     *GnsTsmV1
+	optionalparentpathparamTsmV1 *OptionalparentpathparamTsmV1
+	servicegroupTsmV1            *ServicegroupTsmV1
+	policypkgTsmV1               *PolicypkgTsmV1
 }
 
 type subscription struct {
@@ -210,6 +213,19 @@ func (c *Clientset) SubscribeAll() {
 
 	}
 
+	key = "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if _, ok := subscriptionMap.Load(key); !ok {
+		informer := informeroptionalparentpathparamtsmtanzuvmwarecomv1.NewOptionalParentPathParamInformer(c.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		chainer := optionalparentpathparamOptionalparentpathparamTsmV1Chainer{
+			client: c,
+		}
+		chainer.RegisterAddCallback(chainer.addCallback)
+		chainer.RegisterDeleteCallback(chainer.deleteCallback)
+
+	}
+
 	key = "svcgroups.servicegroup.tsm.tanzu.vmware.com"
 	if _, ok := subscriptionMap.Load(key); !ok {
 		informer := informerservicegrouptsmtanzuvmwarecomv1.NewSvcGroupInformer(c.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
@@ -315,10 +331,11 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 
 	client := &Clientset{}
 	client.baseClient = baseClient
-	client.dynamicClient, _ = dynamic.NewForConfig(config) // TBD: check and react for error
+	client.DynamicClient, _ = dynamic.NewForConfig(config) // TBD: check and react for error
 	client.rootTsmV1 = newRootTsmV1(client)
 	client.configTsmV1 = newConfigTsmV1(client)
 	client.gnsTsmV1 = newGnsTsmV1(client)
+	client.optionalparentpathparamTsmV1 = newOptionalparentpathparamTsmV1(client)
 	client.servicegroupTsmV1 = newServicegroupTsmV1(client)
 	client.policypkgTsmV1 = newPolicypkgTsmV1(client)
 
@@ -330,10 +347,11 @@ func NewFakeClient() *Clientset {
 	client := &Clientset{}
 	scheme := runtime.NewScheme()
 	client.baseClient = fakeBaseClienset.NewSimpleClientset()
-	client.dynamicClient = fakeDynamicClientset.NewSimpleDynamicClient(scheme)
+	client.DynamicClient = fakeDynamicClientset.NewSimpleDynamicClient(scheme)
 	client.rootTsmV1 = newRootTsmV1(client)
 	client.configTsmV1 = newConfigTsmV1(client)
 	client.gnsTsmV1 = newGnsTsmV1(client)
+	client.optionalparentpathparamTsmV1 = newOptionalparentpathparamTsmV1(client)
 	client.servicegroupTsmV1 = newServicegroupTsmV1(client)
 	client.policypkgTsmV1 = newPolicypkgTsmV1(client)
 
@@ -360,6 +378,9 @@ func (c *Clientset) Config() *ConfigTsmV1 {
 }
 func (c *Clientset) Gns() *GnsTsmV1 {
 	return c.gnsTsmV1
+}
+func (c *Clientset) Optionalparentpathparam() *OptionalparentpathparamTsmV1 {
+	return c.optionalparentpathparamTsmV1
 }
 func (c *Clientset) Servicegroup() *ServicegroupTsmV1 {
 	return c.servicegroupTsmV1
@@ -394,6 +415,16 @@ type GnsTsmV1 struct {
 
 func newGnsTsmV1(client *Clientset) *GnsTsmV1 {
 	return &GnsTsmV1{
+		client: client,
+	}
+}
+
+type OptionalparentpathparamTsmV1 struct {
+	client *Clientset
+}
+
+func newOptionalparentpathparamTsmV1(client *Clientset) *OptionalparentpathparamTsmV1 {
+	return &OptionalparentpathparamTsmV1{
 		client: client,
 	}
 }
@@ -5988,6 +6019,14 @@ func (group *GnsTsmV1) DeleteGnsByName(ctx context.Context, hashedName string) (
 		RemoveChild("gnses.gns.tsm.tanzu.vmware.com", hashedName, "foos.gns.tsm.tanzu.vmware.com", child)
 	}
 
+	for _, child := range GetChildren("gnses.gns.tsm.tanzu.vmware.com", hashedName, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com") {
+		err := group.client.Optionalparentpathparam().DeleteOptionalParentPathParamByName(ctx, child)
+		if err != nil && errors.IsNotFound(err) == false {
+			return err
+		}
+		RemoveChild("gnses.gns.tsm.tanzu.vmware.com", hashedName, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", child)
+	}
+
 	retryCount = 0
 	for {
 		err = group.client.baseClient.
@@ -6074,6 +6113,7 @@ func (group *GnsTsmV1) CreateGnsByName(ctx context.Context,
 	objToCreate.Spec.FooChildGvk = nil
 	objToCreate.Spec.IgnoreChildGvk = nil
 	objToCreate.Spec.FooGvk = nil
+	objToCreate.Spec.TestOptionalParentPathParamChildGvk = nil
 	objToCreate.Spec.DnsGvk = nil
 
 	var (
@@ -6160,7 +6200,7 @@ func (group *GnsTsmV1) SetGnsStateByName(ctx context.Context,
 	newCtx := context.TODO()
 	retryCount := 0
 	for {
-		_, err := group.client.dynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
+		_, err := group.client.DynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
 		if err == nil {
 			log.Debugf("[SetGnsStateByName] Updating status for Gns node %s successful", hashedName)
 			break
@@ -7153,6 +7193,132 @@ func (obj *GnsGns) DeleteFoo(ctx context.Context) (err error) {
 	return
 }
 
+type GnsGnsTestOptionalParentPathParamChild struct {
+	client                           *Clientset
+	TestOptionalParentPathParamChild []basegnstsmtanzuvmwarecomv1.Child
+}
+
+func (n *GnsGnsTestOptionalParentPathParamChild) Next(ctx context.Context) (*OptionalparentpathparamOptionalParentPathParam, error) {
+	for index, child := range n.TestOptionalParentPathParamChild {
+		obj, err := n.client.Optionalparentpathparam().GetOptionalParentPathParamByName(ctx, child.Name)
+		if err == nil {
+			if index == len(n.TestOptionalParentPathParamChild)-1 {
+				n.TestOptionalParentPathParamChild = nil
+			} else {
+				n.TestOptionalParentPathParamChild = n.TestOptionalParentPathParamChild[index+1:]
+			}
+			return obj, nil
+		} else if errors.IsNotFound(err) {
+			continue
+		} else {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+// GetAllTestOptionalParentPathParamChildIter returns an iterator for all children of given type
+func (obj *GnsGns) GetAllTestOptionalParentPathParamChildIter(ctx context.Context) (
+	result GnsGnsTestOptionalParentPathParamChild) {
+	result.client = obj.client
+	for _, v := range GetChildren("gnses.gns.tsm.tanzu.vmware.com", obj.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com") {
+		result.TestOptionalParentPathParamChild = append(result.TestOptionalParentPathParamChild, basegnstsmtanzuvmwarecomv1.Child{
+			Group: "optionalparentpathparam.tsm.tanzu.vmware.com",
+			Kind:  "OptionalParentPathParam",
+			Name:  v,
+		})
+	}
+	return
+}
+
+// GetAllTestOptionalParentPathParamChild returns all children of a given type
+func (obj *GnsGns) GetAllTestOptionalParentPathParamChild(ctx context.Context) (
+	result []*OptionalparentpathparamOptionalParentPathParam, err error) {
+	for _, v := range GetChildren("gnses.gns.tsm.tanzu.vmware.com", obj.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com") {
+		l, err := obj.client.Optionalparentpathparam().GetOptionalParentPathParamByName(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, l)
+	}
+	return
+}
+
+// GetTestOptionalParentPathParamChild returns child which has given displayName
+func (obj *GnsGns) GetTestOptionalParentPathParamChild(ctx context.Context,
+	displayName string) (result *OptionalparentpathparamOptionalParentPathParam, err error) {
+
+	parentLabels := make(map[string]string)
+	for k, v := range obj.Labels {
+		parentLabels[k] = v
+	}
+	parentLabels["gnses.gns.tsm.tanzu.vmware.com"] = obj.DisplayName()
+	childHashName := helper.GetHashedName("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", parentLabels, displayName)
+	if IsChildExists("gnses.gns.tsm.tanzu.vmware.com", obj.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", childHashName) == false {
+		return nil, NewChildNotFound(obj.DisplayName(), "Gns.Gns", "TestOptionalParentPathParamChild", displayName)
+	}
+
+	result, err = obj.client.Optionalparentpathparam().GetOptionalParentPathParamByName(ctx, childHashName)
+	return
+}
+
+// AddTestOptionalParentPathParamChild calculates hashed name of the child to create based on objToCreate.Name
+// and parents names and creates it. objToCreate.Name is changed to the hashed name. Original name is preserved in
+// nexus/display_name label and can be obtained using DisplayName() method.
+func (obj *GnsGns) AddTestOptionalParentPathParamChild(ctx context.Context,
+	objToCreate *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam) (result *OptionalparentpathparamOptionalParentPathParam, err error) {
+	log.Debugf("[AddTestOptionalParentPathParamChild] Received objToAdd: %s", objToCreate.GetName())
+	if objToCreate.Labels == nil {
+		objToCreate.Labels = map[string]string{}
+	}
+	for _, v := range helper.GetCRDParentsMap()["gnses.gns.tsm.tanzu.vmware.com"] {
+		objToCreate.Labels[v] = obj.Labels[v]
+	}
+	objToCreate.Labels["gnses.gns.tsm.tanzu.vmware.com"] = obj.DisplayName()
+	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" {
+		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
+		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+		hashedName := helper.GetHashedName(objToCreate.CRDName(), objToCreate.Labels, objToCreate.GetName())
+		objToCreate.Name = hashedName
+	}
+	result, err = obj.client.Optionalparentpathparam().CreateOptionalParentPathParamByName(ctx, objToCreate)
+	log.Debugf("[AddTestOptionalParentPathParamChild] OptionalParentPathParam created successfully: %s", objToCreate.GetName())
+	updatedObj, getErr := obj.client.Gns().GetGnsByName(ctx, obj.GetName())
+	if getErr == nil {
+		obj.Gns = updatedObj.Gns
+	}
+	log.Debugf("[AddTestOptionalParentPathParamChild] Executed Successfully: %s", objToCreate.GetName())
+	return
+}
+
+// DeleteTestOptionalParentPathParamChild calculates hashed name of the child to delete based on displayName
+// and parents names and deletes it.
+
+func (obj *GnsGns) DeleteTestOptionalParentPathParamChild(ctx context.Context, displayName string) (err error) {
+	log.Debugf("[ DeleteTestOptionalParentPathParamChild] Received for OptionalParentPathParam object: %s to delete", displayName)
+
+	parentLabels := make(map[string]string)
+	for k, v := range obj.Labels {
+		parentLabels[k] = v
+	}
+	parentLabels["gnses.gns.tsm.tanzu.vmware.com"] = obj.DisplayName()
+	childHashName := helper.GetHashedName("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", parentLabels, displayName)
+	if IsChildExists("gnses.gns.tsm.tanzu.vmware.com", obj.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", childHashName) == false {
+		return NewChildNotFound(obj.DisplayName(), "Gns.Gns", "TestOptionalParentPathParamChild", displayName)
+	}
+
+	err = obj.client.Optionalparentpathparam().DeleteOptionalParentPathParamByName(ctx, childHashName)
+	if err != nil {
+		return err
+	}
+	log.Debugf("[ DeleteTestOptionalParentPathParamChild] OptionalParentPathParam object: %s deleted successfully", displayName)
+	updatedObj, err := obj.client.Gns().GetGnsByName(ctx, obj.GetName())
+	if err == nil {
+		obj.Gns = updatedObj.Gns
+	}
+	return
+}
+
 // GetDns returns link of given type
 func (obj *GnsGns) GetDns(ctx context.Context) (
 	result *GnsDns, err error) {
@@ -7819,6 +7985,53 @@ func (c *gnsGnsTsmV1Chainer) DeleteFoo(ctx context.Context, name string) (err er
 	c.parentLabels[common.IS_NAME_HASHED_LABEL] = "true"
 	hashedName := helper.GetHashedName("foos.gns.tsm.tanzu.vmware.com", c.parentLabels, name)
 	return c.client.Gns().DeleteFooByName(ctx, hashedName)
+}
+
+func (c *gnsGnsTsmV1Chainer) TestOptionalParentPathParamChild(name string) *optionalparentpathparamOptionalparentpathparamTsmV1Chainer {
+	parentLabels := c.parentLabels
+	parentLabels["optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"] = name
+	return &optionalparentpathparamOptionalparentpathparamTsmV1Chainer{
+		client:       c.client,
+		name:         name,
+		parentLabels: parentLabels,
+	}
+}
+
+// GetTestOptionalParentPathParamChild calculates hashed name of the object based on displayName and it's parents and returns the object
+func (c *gnsGnsTsmV1Chainer) GetTestOptionalParentPathParamChild(ctx context.Context, displayName string) (result *OptionalparentpathparamOptionalParentPathParam, err error) {
+	hashedName := helper.GetHashedName("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", c.parentLabels, displayName)
+	return c.client.Optionalparentpathparam().GetOptionalParentPathParamByName(ctx, hashedName)
+}
+
+// AddTestOptionalParentPathParamChild calculates hashed name of the child to create based on objToCreate.Name
+// and parents names and creates it. objToCreate.Name is changed to the hashed name. Original name is preserved in
+// nexus/display_name label and can be obtained using DisplayName() method.
+func (c *gnsGnsTsmV1Chainer) AddTestOptionalParentPathParamChild(ctx context.Context,
+	objToCreate *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam) (result *OptionalparentpathparamOptionalParentPathParam, err error) {
+	if objToCreate.Labels == nil {
+		objToCreate.Labels = map[string]string{}
+	}
+	for k, v := range c.parentLabels {
+		objToCreate.Labels[k] = v
+	}
+	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" {
+		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
+		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+		hashedName := helper.GetHashedName("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", c.parentLabels, objToCreate.GetName())
+		objToCreate.Name = hashedName
+	}
+	return c.client.Optionalparentpathparam().CreateOptionalParentPathParamByName(ctx, objToCreate)
+}
+
+// DeleteTestOptionalParentPathParamChild calculates hashed name of the child to delete based on displayName
+// and parents names and deletes it.
+func (c *gnsGnsTsmV1Chainer) DeleteTestOptionalParentPathParamChild(ctx context.Context, name string) (err error) {
+	if c.parentLabels == nil {
+		c.parentLabels = map[string]string{}
+	}
+	c.parentLabels[common.IS_NAME_HASHED_LABEL] = "true"
+	hashedName := helper.GetHashedName("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", c.parentLabels, name)
+	return c.client.Optionalparentpathparam().DeleteOptionalParentPathParamByName(ctx, hashedName)
 }
 
 func (group *GnsTsmV1) GetBarChildChildrenMap() map[string]basegnstsmtanzuvmwarecomv1.Child {
@@ -10264,6 +10477,802 @@ func (c *dnsGnsTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *GnsDns)) (cac
 			}
 			if IsChildExists("configs.config.tsm.tanzu.vmware.com", parent.Name, "dnses.gns.tsm.tanzu.vmware.com", nc.Name) {
 				RemoveChild("configs.config.tsm.tanzu.vmware.com", parent.Name, "dnses.gns.tsm.tanzu.vmware.com", nc.Name)
+			}
+
+			cbfn(nc)
+		},
+	})
+
+	return registrationId, err
+}
+
+func (group *OptionalparentpathparamTsmV1) GetOptionalParentPathParamChildrenMap() map[string]baseoptionalparentpathparamtsmtanzuvmwarecomv1.Child {
+	return map[string]baseoptionalparentpathparamtsmtanzuvmwarecomv1.Child{}
+}
+
+func (group *OptionalparentpathparamTsmV1) GetOptionalParentPathParamChild(grp, kind, name string) baseoptionalparentpathparamtsmtanzuvmwarecomv1.Child {
+	return baseoptionalparentpathparamtsmtanzuvmwarecomv1.Child{
+		Group: grp,
+		Kind:  kind,
+		Name:  name,
+	}
+}
+
+// GetOptionalParentPathParamByName returns object stored in the database under the hashedName which is a hash of display
+// name and parents names. Use it when you know hashed name of object.
+func (group *OptionalparentpathparamTsmV1) GetOptionalParentPathParamByName(ctx context.Context, hashedName string) (*OptionalparentpathparamOptionalParentPathParam, error) {
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		// Check if the object is in write cache.
+		resWrCache, inWrCache := s.(subscription).WriteCacheObjects.Load(hashedName)
+		item, exists, _ := s.(subscription).informer.GetStore().GetByKey(hashedName)
+		if exists {
+			log.Debugf("[GetOptionalParentPathParamByName] Object: %s exists in cache", hashedName)
+			resultCache, _ := item.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam)
+			subsCacheVersion, subsCacheVersionErr := strconv.Atoi(resultCache.ResourceVersion)
+			if subsCacheVersionErr != nil {
+				log.Fatalf("[GetOptionalParentPathParamByName] Getting version of Object: %s failed with error %v", hashedName, subsCacheVersionErr)
+			}
+
+			writeCacheVersion := 0
+			var writeCacheVersionErr error
+			if inWrCache {
+				writeCacheVersion, writeCacheVersionErr = strconv.Atoi(resWrCache.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam).ResourceVersion)
+				if writeCacheVersionErr != nil {
+					log.Fatalf("[GetOptionalParentPathParamByName] Getting version of Object: %s in write cache failed with error %v", hashedName, writeCacheVersionErr)
+				}
+			}
+
+			if !inWrCache || subsCacheVersion >= writeCacheVersion {
+				if inWrCache {
+					s.(subscription).WriteCacheObjects.Delete(hashedName)
+				}
+				return &OptionalparentpathparamOptionalParentPathParam{
+					client:                  group.client,
+					OptionalParentPathParam: resultCache,
+				}, nil
+			}
+		}
+		if inWrCache {
+			return &OptionalparentpathparamOptionalParentPathParam{
+				client:                  group.client,
+				OptionalParentPathParam: resWrCache.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}, nil
+		}
+	}
+
+	retryCount := 0
+	for {
+		result, err := group.client.baseClient.
+			OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().Get(ctx, hashedName, metav1.GetOptions{})
+		if err == nil {
+			return &OptionalparentpathparamOptionalParentPathParam{
+				client:                  group.client,
+				OptionalParentPathParam: result,
+			}, nil
+		} else if errors.IsNotFound(err) {
+			log.Debugf("[GetOptionalParentPathParamByName]: object %v not found", hashedName)
+			return nil, err
+		} else {
+			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("[Retry count: (%d) obj: %s ] %+v", retryCount, hashedName, err)
+				if retryCount == maxRetryCount {
+					log.Errorf("Max retry exceed on Get OptionalParentPathParams: %s", hashedName)
+					return nil, err
+				}
+				retryCount += 1
+				time.Sleep(sleepTime * time.Second)
+			} else if customerrors.Is(err, context.Canceled) {
+				log.Errorf("[GetOptionalParentPathParamByName]: %+v", err)
+				return nil, context.Canceled
+			} else {
+				log.Errorf("[GetOptionalParentPathParamByName]: %+v", err)
+				return nil, err
+			}
+		}
+	}
+}
+
+// ForceReadOptionalParentPathParamByName read object directly from the database under the hashedName which is a hash of display
+// name and parents names. Use it when you know hashed name of object.
+func (group *OptionalparentpathparamTsmV1) ForceReadOptionalParentPathParamByName(ctx context.Context, hashedName string) (*OptionalparentpathparamOptionalParentPathParam, error) {
+	log.Debugf("[ForceReadOptionalParentPathParamByName] Received object :%s to read from DB", hashedName)
+	retryCount := 0
+	for {
+		result, err := group.client.baseClient.
+			OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().Get(ctx, hashedName, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("[ForceReadOptionalParentPathParamByName] Failed to Get OptionalParentPathParams: %+v", err)
+			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
+				log.Errorf("[Retry Count: %d ] %+v", retryCount, err)
+				if retryCount == maxRetryCount {
+					log.Errorf("Max Retry exceed on Get OptionalParentPathParams: %s", hashedName)
+					return nil, err
+				}
+				retryCount += 1
+				time.Sleep(sleepTime * time.Second)
+			} else if customerrors.Is(err, context.Canceled) {
+				log.Errorf("[ForceReadOptionalParentPathParamByName]: %+v", err)
+				return nil, context.Canceled
+			} else {
+				log.Errorf("[ForceReadOptionalParentPathParamByName]: %+v", err)
+				return nil, err
+			}
+		} else {
+			log.Debugf("[ForceReadOptionalParentPathParamByName] Executed Successfully :%s", hashedName)
+			return &OptionalparentpathparamOptionalParentPathParam{
+				client:                  group.client,
+				OptionalParentPathParam: result,
+			}, nil
+		}
+	}
+}
+
+// DeleteOptionalParentPathParamByName deletes object stored in the database under the hashedName which is a hash of
+// display name and parents names. Use it when you know hashed name of object.
+func (group *OptionalparentpathparamTsmV1) DeleteOptionalParentPathParamByName(ctx context.Context, hashedName string) (err error) {
+	log.Debugf("[DeleteOptionalParentPathParamByName] Received objectToDelete: %s", hashedName)
+	var (
+		retryCount int
+		result     *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam
+	)
+
+	retryCount = 0
+	for {
+		result, err = group.client.baseClient.
+			OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().Get(ctx, hashedName, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("[DeleteOptionalParentPathParamByName] Failed to get OptionalParentPathParams: %+v", err)
+			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("[Retry count: (%d) obj: %s ] %+v", retryCount, hashedName, err)
+				if retryCount == maxRetryCount {
+					log.Errorf("Max retry exceed on get OptionalParentPathParams: %s", hashedName)
+					return err
+				}
+				retryCount += 1
+				time.Sleep(sleepTime * time.Second)
+			} else if customerrors.Is(err, context.Canceled) {
+				log.Errorf("[DeleteOptionalParentPathParamByName] context canceled: %s", hashedName)
+				return context.Canceled
+			} else if errors.IsNotFound(err) {
+				log.Errorf("[DeleteOptionalParentPathParamByName] Object: %s not found", hashedName)
+				break
+			} else {
+				log.Errorf("[DeleteOptionalParentPathParamByName] Object: %s unexpected error: %+v", hashedName, err)
+				return err
+			}
+		} else {
+			break
+		}
+	}
+
+	if result == nil {
+		return err
+	}
+
+	retryCount = 0
+	for {
+		err = group.client.baseClient.
+			OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().Delete(ctx, hashedName, metav1.DeleteOptions{})
+		if err != nil {
+			log.Errorf("[DeleteOptionalParentPathParamByName] failed to delete OptionalParentPathParams: %+v", err)
+			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("[Retry count: (%d) obj: %s ] %+v", retryCount, hashedName, err)
+				if retryCount == maxRetryCount {
+					log.Errorf("Max retry exceed on delete OptionalParentPathParams: %s", hashedName)
+					return err
+				}
+				retryCount += 1
+				time.Sleep(sleepTime * time.Second)
+			} else if customerrors.Is(err, context.Canceled) {
+				log.Errorf("[DeleteOptionalParentPathParamByName]: context canceled: %s", hashedName)
+				return context.Canceled
+			} else if errors.IsNotFound(err) {
+				log.Errorf("[DeleteOptionalParentPathParamByName] Object: %s not found", hashedName)
+				break
+			} else {
+				log.Errorf("[DeleteOptionalParentPathParamByName] Object: %s unexpected error: %+v", hashedName, err)
+				return err
+			}
+		} else {
+			if s, ok := subscriptionMap.Load("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"); ok {
+				s.(subscription).WriteCacheObjects.Delete(hashedName)
+			}
+			break
+		}
+	}
+	// Get Parent Node and check if gvk present before patch
+
+	log.Debugf("[DeleteOptionalParentPathParamByName] Get parent details for object: %s", hashedName)
+	// var patch Patch
+	parents := result.GetLabels()
+	if parents == nil {
+		parents = make(map[string]string)
+	}
+	parentName, ok := parents["gnses.gns.tsm.tanzu.vmware.com"]
+	if !ok {
+		parentName = helper.DEFAULT_KEY
+	}
+	if result.GetLabels() != nil {
+		if parents[common.IS_NAME_HASHED_LABEL] == "true" {
+			parentName = helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", parents, parentName)
+		}
+	} else {
+		parentName = helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", parents, parentName)
+	}
+	RemoveChild("gnses.gns.tsm.tanzu.vmware.com", parentName, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", hashedName)
+
+	return nil
+}
+
+// CreateOptionalParentPathParamByName creates object in the database without hashing the name.
+// Use it directly ONLY when objToCreate.Name is hashed name of the object.
+func (group *OptionalparentpathparamTsmV1) CreateOptionalParentPathParamByName(ctx context.Context,
+	objToCreate *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam) (*OptionalparentpathparamOptionalParentPathParam, error) {
+	log.Debugf("[CreateOptionalParentPathParamByName] Received objToCreate: %s", objToCreate.GetName())
+	if objToCreate.GetLabels() == nil {
+		objToCreate.Labels = make(map[string]string)
+	}
+	if _, ok := objToCreate.Labels[common.DISPLAY_NAME_LABEL]; !ok {
+		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
+	}
+
+	var (
+		retryCount int
+		result     *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam
+		err        error
+	)
+	retryCount = 0
+	for {
+		result, err = group.client.baseClient.
+			OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().Create(ctx, objToCreate, metav1.CreateOptions{})
+		if err != nil {
+			log.Errorf("[CreateOptionalParentPathParamByName] Failed to create OptionalParentPathParam: %s, error: %+v", objToCreate.GetName(), err)
+			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("[Retry count: (%d) obj: %s ] %+v", retryCount, objToCreate.GetName(), err)
+				if retryCount == maxRetryCount {
+					log.Errorf("Max retry exceed on create OptionalParentPathParam: %s", objToCreate.GetName())
+					return nil, err
+				}
+				retryCount += 1
+				time.Sleep(sleepTime * time.Second)
+			} else if customerrors.Is(err, context.Canceled) {
+				log.Errorf("[CreateOptionalParentPathParamByName] context canceled while creating OptionalParentPathParam: %s", objToCreate.GetName())
+				return nil, context.Canceled
+			} else if errors.IsAlreadyExists(err) {
+				log.Debugf("[CreateOptionalParentPathParamByName] OptionalParentPathParam: %s already exists, error: %+v", objToCreate.GetName(), err)
+				result, err = group.client.baseClient.OptionalparentpathparamTsmV1().OptionalParentPathParams().Get(ctx, objToCreate.GetName(), metav1.GetOptions{})
+				if err != nil {
+					log.Fatalf("[CreateOptionalParentPathParamByName] Unable to Get OptionalParentPathParam %s after it was flagged as already exists, error: %+v", objToCreate.GetName(), err)
+				}
+				break
+			} else {
+				log.Errorf("[CreateOptionalParentPathParamByName] found unexpected error while creating OptionalParentPathParam: %s, error: %+v", objToCreate.GetName(), err)
+				return nil, err
+			}
+		} else {
+			log.Debugf("[CreateOptionalParentPathParamByName] OptionalParentPathParam: %s created successfully", objToCreate.GetName())
+			if s, ok := subscriptionMap.Load("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"); ok {
+				log.Debugf("[CreateOptionalParentPathParamByName] OptionalParentPathParam: %s stored in wr-cache", objToCreate.GetName())
+				s.(subscription).WriteCacheObjects.Store(objToCreate.GetName(), result)
+			}
+			break
+		}
+	}
+
+	parentName, ok := objToCreate.GetLabels()["gnses.gns.tsm.tanzu.vmware.com"]
+	if !ok {
+		parentName = helper.DEFAULT_KEY
+	}
+	parentHashedName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", objToCreate.GetLabels(), parentName)
+
+	AddChild("gnses.gns.tsm.tanzu.vmware.com", parentHashedName, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", objToCreate.Name)
+
+	log.Debugf("[CreateOptionalParentPathParamByName] Executed Successfully: %s", objToCreate.GetName())
+	return &OptionalparentpathparamOptionalParentPathParam{
+		client:                  group.client,
+		OptionalParentPathParam: result,
+	}, nil
+}
+
+// UpdateOptionalParentPathParamByName updates object stored in the database under the hashedName which is a hash of
+// display name and parents names.
+func (group *OptionalparentpathparamTsmV1) UpdateOptionalParentPathParamByName(ctx context.Context,
+	objToUpdate *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam) (*OptionalparentpathparamOptionalParentPathParam, error) {
+	log.Debugf("[UpdateOptionalParentPathParamByName] Received objToUpdate: %s", objToUpdate.GetName())
+
+	var patch Patch
+
+	if objToUpdate.Annotations != nil || objToUpdate.Labels != nil {
+		current, err := group.client.Optionalparentpathparam().GetOptionalParentPathParamByName(ctx, objToUpdate.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if objToUpdate.Annotations != nil {
+			if current.Annotations[ownershipAnnotation] != "" {
+				objToUpdate.Annotations[ownershipAnnotation] = current.Annotations[ownershipAnnotation]
+			}
+			patch = append(patch, PatchOp{
+				Op:    "replace",
+				Path:  "/metadata/annotations",
+				Value: objToUpdate.Annotations,
+			})
+		}
+
+		if objToUpdate.Labels != nil {
+			parentsList := helper.GetCRDParentsMap()["optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"]
+			for _, k := range parentsList {
+				objToUpdate.Labels[k] = current.Labels[k]
+			}
+			objToUpdate.Labels[common.IS_NAME_HASHED_LABEL] = current.Labels[common.IS_NAME_HASHED_LABEL]
+			objToUpdate.Labels[common.DISPLAY_NAME_LABEL] = current.Labels[common.DISPLAY_NAME_LABEL]
+			patch = append(patch, PatchOp{
+				Op:    "replace",
+				Path:  "/metadata/labels",
+				Value: objToUpdate.Labels,
+			})
+		}
+		patch = append(patch, PatchOp{
+			Op:    "replace",
+			Path:  "/metadata/finalizers",
+			Value: objToUpdate.Finalizers,
+		})
+	}
+
+	marshaled, err := patch.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		result *baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam
+	)
+	newCtx := context.TODO()
+	retryCount := 0
+	for {
+		result, err = group.client.baseClient.
+			OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().Patch(newCtx, objToUpdate.GetName(), types.JSONPatchType, marshaled, metav1.PatchOptions{}, "")
+		if err != nil {
+			log.Errorf("[UpdateOptionalParentPathParamByName] Failed to patch OptionalParentPathParam %s with error: %+v", objToUpdate.GetName(), err)
+			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
+				log.Debugf("[Retry count: (%d) obj: %s ] %+v", retryCount, objToUpdate.GetName(), err)
+				if retryCount == maxRetryCount {
+					log.Errorf("Max retry exceed on patching: %s", objToUpdate.GetName())
+					log.Debugf("Trigger OptionalParentPathParam Delete: %s", objToUpdate.GetName())
+					delErr := group.DeleteOptionalParentPathParamByName(newCtx, objToUpdate.GetName())
+					if delErr != nil {
+						log.Debugf("Error occur while deleting OptionalParentPathParam: %s", objToUpdate.GetName())
+						return nil, delErr
+					}
+					log.Debugf("OptionalParentPathParam deleted: %s", objToUpdate.GetName())
+					return nil, err
+				}
+				retryCount += 1
+				time.Sleep(sleepTime * time.Second)
+			} else if customerrors.Is(err, context.Canceled) {
+				log.Errorf("[UpdateOptionalParentPathParamByName]: context canceled: %s", objToUpdate.GetName())
+				return nil, context.Canceled
+			} else {
+				log.Errorf("[UpdateOptionalParentPathParamByName] Object: %s unexpected error: %+v", objToUpdate.GetName(), err)
+				log.Debugf("Trigger OptionalParentPathParam Delete: %s", objToUpdate.GetName())
+				delErr := group.DeleteOptionalParentPathParamByName(newCtx, objToUpdate.GetName())
+				if delErr != nil {
+					log.Debugf("Error occur while deleting OptionalParentPathParam: %+v", objToUpdate.GetName())
+					return nil, delErr
+				}
+				log.Debugf("OptionalParentPathParam Deleted: %s", objToUpdate.GetName())
+				return nil, err
+			}
+		} else {
+			log.Debugf("[UpdateOptionalParentPathParamByName] Patch OptionalParentPathParam Success :%s", objToUpdate.GetName())
+			if s, ok := subscriptionMap.Load("optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"); ok {
+				log.Debugf("[UpdateOptionalParentPathParamByName] %s stored in wr-cache", objToUpdate.GetName())
+				s.(subscription).WriteCacheObjects.Store(objToUpdate.GetName(), result)
+			}
+			break
+		}
+	}
+	log.Debugf("[UpdateOptionalParentPathParamByName] Executed Successfully %s", objToUpdate.GetName())
+	return &OptionalparentpathparamOptionalParentPathParam{
+		client:                  group.client,
+		OptionalParentPathParam: result,
+	}, nil
+}
+
+// ListOptionalParentPathParams returns slice of all existing objects of this type. Selectors can be provided in opts parameter.
+func (group *OptionalparentpathparamTsmV1) ListOptionalParentPathParams(ctx context.Context,
+	opts metav1.ListOptions) (result []*OptionalparentpathparamOptionalParentPathParam, err error) {
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		items := s.(subscription).informer.GetStore().List()
+		result = make([]*OptionalparentpathparamOptionalParentPathParam, len(items))
+		for k, v := range items {
+			item, _ := v.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam)
+			result[k] = &OptionalparentpathparamOptionalParentPathParam{
+				client:                  group.client,
+				OptionalParentPathParam: item,
+			}
+		}
+	} else {
+		list, err := group.client.baseClient.OptionalparentpathparamTsmV1().
+			OptionalParentPathParams().List(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		result = make([]*OptionalparentpathparamOptionalParentPathParam, len(list.Items))
+		for k, v := range list.Items {
+			item := v
+			result[k] = &OptionalparentpathparamOptionalParentPathParam{
+				client:                  group.client,
+				OptionalParentPathParam: &item,
+			}
+		}
+	}
+	return
+}
+
+type OptionalparentpathparamOptionalParentPathParam struct {
+	client *Clientset
+	*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam
+}
+
+// Delete removes obj and all it's children from the database.
+func (obj *OptionalparentpathparamOptionalParentPathParam) Delete(ctx context.Context) error {
+	err := obj.client.Optionalparentpathparam().DeleteOptionalParentPathParamByName(ctx, obj.GetName())
+	if err != nil {
+		return err
+	}
+	obj.OptionalParentPathParam = nil
+	return nil
+}
+
+// Update updates spec of object in database. Children and Link can not be updated using this function.
+func (obj *OptionalparentpathparamOptionalParentPathParam) Update(ctx context.Context) error {
+	result, err := obj.client.Optionalparentpathparam().UpdateOptionalParentPathParamByName(ctx, obj.OptionalParentPathParam)
+	if err != nil {
+		return err
+	}
+	obj.OptionalParentPathParam = result.OptionalParentPathParam
+	return nil
+}
+
+func (obj *OptionalparentpathparamOptionalParentPathParam) GetParent(ctx context.Context) (result *GnsGns, err error) {
+	hashedName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", obj.Labels, obj.Labels["gnses.gns.tsm.tanzu.vmware.com"])
+	return obj.client.Gns().GetGnsByName(ctx, hashedName)
+}
+
+type optionalparentpathparamOptionalparentpathparamTsmV1Chainer struct {
+	client       *Clientset
+	name         string
+	parentLabels map[string]string
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) Subscribe() {
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if _, ok := subscriptionMap.Load(key); !ok {
+		informer := informeroptionalparentpathparamtsmtanzuvmwarecomv1.NewOptionalParentPathParamInformer(c.client.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+
+	}
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) Unsubscribe() {
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		close(s.(subscription).stop)
+		subscriptionMap.Delete(key)
+	}
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) IsSubscribed() bool {
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	_, ok := subscriptionMap.Load(key)
+	return ok
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) addCallback(obj *OptionalparentpathparamOptionalParentPathParam) {
+	parentDisplayName := helper.DEFAULT_KEY
+	if value, ok := obj.Labels["gnses.gns.tsm.tanzu.vmware.com"]; ok {
+		parentDisplayName = value
+	}
+	parentHashName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", obj.Labels, parentDisplayName)
+
+	AddChild("gnses.gns.tsm.tanzu.vmware.com", parentHashName, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", obj.Name)
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) deleteCallback(obj *OptionalparentpathparamOptionalParentPathParam) {
+	parentDisplayName := helper.DEFAULT_KEY
+	if value, ok := obj.Labels["gnses.gns.tsm.tanzu.vmware.com"]; ok {
+		parentDisplayName = value
+	}
+	parentHashName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", obj.Labels, parentDisplayName)
+
+	RemoveChild("gnses.gns.tsm.tanzu.vmware.com", parentHashName, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", obj.Name)
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) RegisterEventHandler(addCB func(obj *OptionalparentpathparamOptionalParentPathParam), updateCB func(oldObj, newObj *OptionalparentpathparamOptionalParentPathParam), deleteCB func(obj *OptionalparentpathparamOptionalParentPathParam)) (cache.ResourceEventHandlerRegistration, error) {
+	fmt.Println("RegisterEventHandler for OptionalparentpathparamOptionalParentPathParam")
+	var (
+		registrationId cache.ResourceEventHandlerRegistration
+		err            error
+		informer       cache.SharedIndexInformer
+	)
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		fmt.Println("Informer exists for OptionalparentpathparamOptionalParentPathParam")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for OptionalparentpathparamOptionalParentPathParam, so creating a new one")
+		informer = informeroptionalparentpathparamtsmtanzuvmwarecomv1.NewOptionalParentPathParamInformer(c.client.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+
+	}
+	registrationId, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			nc := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: obj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+
+			var parent *GnsGns
+			for i := 0; i < 600; i++ {
+				// Check if parent exists
+				p, err := nc.GetParent(context.TODO())
+				if err != nil || p == nil {
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+				parent = p
+				break
+			}
+			if parent == nil {
+				hashedName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", nc.Labels, nc.Labels["gnses.gns.tsm.tanzu.vmware.com"])
+				parent, err = c.client.Gns().ForceReadGnsByName(context.TODO(), hashedName)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return
+					}
+					panic("error occurred while fetching parent " + err.Error())
+				}
+				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
+			}
+			if !IsChildExists("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name) {
+				AddChild("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name)
+			}
+
+			addCB(nc)
+		},
+
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldData := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: oldObj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+			newData := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: newObj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+			updateCB(oldData, newData)
+		},
+
+		DeleteFunc: func(obj interface{}) {
+			nc := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: obj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+
+			var parent *GnsGns
+			for i := 0; i < 600; i++ {
+				// Check if parent exists
+				p, err := nc.GetParent(context.TODO())
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+				parent = p
+				break
+			}
+			if parent == nil {
+				hashedName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", nc.Labels, nc.Labels["gnses.gns.tsm.tanzu.vmware.com"])
+				parent, err = c.client.Gns().ForceReadGnsByName(context.TODO(), hashedName)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return
+					}
+					panic("error occurred while fetching parent " + err.Error())
+				}
+				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
+			}
+
+			if IsChildExists("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name) {
+				RemoveChild("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name)
+			}
+
+			deleteCB(nc)
+		},
+	})
+	return registrationId, err
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) RegisterAddCallback(cbfn func(obj *OptionalparentpathparamOptionalParentPathParam)) (cache.ResourceEventHandlerRegistration, error) {
+	log.Debugf("[RegisterAddCallback] Received for OptionalparentpathparamOptionalParentPathParam")
+	var (
+		registrationId cache.ResourceEventHandlerRegistration
+		err            error
+		informer       cache.SharedIndexInformer
+	)
+
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		fmt.Println("Informer exists for OptionalparentpathparamOptionalParentPathParam")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for OptionalparentpathparamOptionalParentPathParam, so creating a new one")
+		informer = informeroptionalparentpathparamtsmtanzuvmwarecomv1.NewOptionalParentPathParamInformer(c.client.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+
+	}
+
+	registrationId, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			nc := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: obj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+
+			var parent *GnsGns
+			for i := 0; i < 600; i++ {
+				// Check if parent exists
+				p, err := nc.GetParent(context.TODO())
+				if err != nil || p == nil {
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+				parent = p
+				break
+			}
+			if parent == nil {
+				hashedName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", nc.Labels, nc.Labels["gnses.gns.tsm.tanzu.vmware.com"])
+				parent, err = c.client.Gns().ForceReadGnsByName(context.TODO(), hashedName)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return
+					}
+
+					panic("error occurred while fetching parent " + err.Error())
+				}
+				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
+			}
+
+			if !IsChildExists("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name) {
+				AddChild("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name)
+			}
+
+			cbfn(nc)
+		},
+	})
+
+	return registrationId, err
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) RegisterUpdateCallback(cbfn func(oldObj, newObj *OptionalparentpathparamOptionalParentPathParam)) (cache.ResourceEventHandlerRegistration, error) {
+	log.Debugf("[RegisterUpdateCallback] Received for OptionalparentpathparamOptionalParentPathParam")
+	var (
+		registrationId cache.ResourceEventHandlerRegistration
+		err            error
+		informer       cache.SharedIndexInformer
+	)
+
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		fmt.Println("Informer exists for OptionalparentpathparamOptionalParentPathParam")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for OptionalparentpathparamOptionalParentPathParam, so creating a new one")
+		informer = informeroptionalparentpathparamtsmtanzuvmwarecomv1.NewOptionalParentPathParamInformer(c.client.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+
+	}
+
+	registrationId, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldData := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: oldObj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+			newData := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: newObj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+			cbfn(oldData, newData)
+		},
+	})
+
+	return registrationId, err
+}
+
+func (c *optionalparentpathparamOptionalparentpathparamTsmV1Chainer) RegisterDeleteCallback(cbfn func(obj *OptionalparentpathparamOptionalParentPathParam)) (cache.ResourceEventHandlerRegistration, error) {
+	log.Debugf("[RegisterDeleteCallback] Received for OptionalparentpathparamOptionalParentPathParam")
+	var (
+		registrationId cache.ResourceEventHandlerRegistration
+		err            error
+		informer       cache.SharedIndexInformer
+	)
+
+	key := "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com"
+	if s, ok := subscriptionMap.Load(key); ok {
+		fmt.Println("Informer exists for OptionalparentpathparamOptionalParentPathParam")
+		sub := s.(subscription)
+		informer = sub.informer
+	} else {
+		fmt.Println("Informer doesn't exists for OptionalparentpathparamOptionalParentPathParam, so creating a new one")
+		informer = informeroptionalparentpathparamtsmtanzuvmwarecomv1.NewOptionalParentPathParamInformer(c.client.baseClient, informerResyncPeriod*time.Second, cache.Indexers{})
+		subscribe(key, informer)
+
+		c.RegisterAddCallback(c.addCallback)
+		c.RegisterDeleteCallback(c.deleteCallback)
+
+	}
+
+	registrationId, err = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj interface{}) {
+			nc := &OptionalparentpathparamOptionalParentPathParam{
+				client:                  c.client,
+				OptionalParentPathParam: obj.(*baseoptionalparentpathparamtsmtanzuvmwarecomv1.OptionalParentPathParam),
+			}
+
+			var parent *GnsGns
+			for i := 0; i < 600; i++ {
+				// Check if parent exists
+				p, err := nc.GetParent(context.TODO())
+				if errors.IsNotFound(err) {
+					break
+				} else if err != nil || p == nil {
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+				parent = p
+				break
+			}
+
+			if parent == nil {
+				hashedName := helper.GetHashedName("gnses.gns.tsm.tanzu.vmware.com", nc.Labels, nc.Labels["gnses.gns.tsm.tanzu.vmware.com"])
+				parent, err = c.client.Gns().ForceReadGnsByName(context.TODO(), hashedName)
+				if err != nil {
+					if errors.IsNotFound(err) {
+						return
+					}
+
+					panic("error occurred while fetching parent " + err.Error())
+				}
+				panic(fmt.Sprintf("parent found (event loop is stalled) " + nc.DisplayName()))
+			}
+			if IsChildExists("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name) {
+				RemoveChild("gnses.gns.tsm.tanzu.vmware.com", parent.Name, "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com", nc.Name)
 			}
 
 			cbfn(nc)
@@ -13317,7 +14326,7 @@ func (group *PolicypkgTsmV1) SetACPConfigStatusByName(ctx context.Context,
 	newCtx := context.TODO()
 	retryCount := 0
 	for {
-		_, err := group.client.dynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
+		_, err := group.client.DynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
 		if err == nil {
 			log.Debugf("[SetACPConfigStatusByName] Updating status for ACPConfig node %s successful", hashedName)
 			break

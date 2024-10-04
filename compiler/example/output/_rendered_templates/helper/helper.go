@@ -19,20 +19,21 @@ const IS_NAME_HASHED_LABEL = "nexus/is_name_hashed"
 
 func GetCRDParentsMap() map[string][]string {
 	return map[string][]string{
-		"accesscontrolpolicies.policypkg.tsm.tanzu.vmware.com": {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
-		"acpconfigs.policypkg.tsm.tanzu.vmware.com":            {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com", "accesscontrolpolicies.policypkg.tsm.tanzu.vmware.com"},
-		"barchilds.gns.tsm.tanzu.vmware.com":                   {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
-		"configs.config.tsm.tanzu.vmware.com":                  {"roots.root.tsm.tanzu.vmware.com"},
-		"dnses.gns.tsm.tanzu.vmware.com":                       {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
-		"domains.config.tsm.tanzu.vmware.com":                  {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
-		"foos.gns.tsm.tanzu.vmware.com":                        {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
-		"footypeabcs.config.tsm.tanzu.vmware.com":              {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
-		"gnses.gns.tsm.tanzu.vmware.com":                       {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
-		"ignorechilds.gns.tsm.tanzu.vmware.com":                {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
-		"roots.root.tsm.tanzu.vmware.com":                      {},
-		"svcgrouplinkinfos.servicegroup.tsm.tanzu.vmware.com":  {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
-		"svcgroups.servicegroup.tsm.tanzu.vmware.com":          {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
-		"vmpolicies.policypkg.tsm.tanzu.vmware.com":            {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
+		"accesscontrolpolicies.policypkg.tsm.tanzu.vmware.com":                  {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
+		"acpconfigs.policypkg.tsm.tanzu.vmware.com":                             {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com", "accesscontrolpolicies.policypkg.tsm.tanzu.vmware.com"},
+		"barchilds.gns.tsm.tanzu.vmware.com":                                    {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
+		"configs.config.tsm.tanzu.vmware.com":                                   {"roots.root.tsm.tanzu.vmware.com"},
+		"dnses.gns.tsm.tanzu.vmware.com":                                        {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
+		"domains.config.tsm.tanzu.vmware.com":                                   {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
+		"foos.gns.tsm.tanzu.vmware.com":                                         {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
+		"footypeabcs.config.tsm.tanzu.vmware.com":                               {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
+		"gnses.gns.tsm.tanzu.vmware.com":                                        {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
+		"ignorechilds.gns.tsm.tanzu.vmware.com":                                 {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
+		"optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com": {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
+		"roots.root.tsm.tanzu.vmware.com":                                       {},
+		"svcgrouplinkinfos.servicegroup.tsm.tanzu.vmware.com":                   {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
+		"svcgroups.servicegroup.tsm.tanzu.vmware.com":                           {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com", "gnses.gns.tsm.tanzu.vmware.com"},
+		"vmpolicies.policypkg.tsm.tanzu.vmware.com":                             {"roots.root.tsm.tanzu.vmware.com", "configs.config.tsm.tanzu.vmware.com"},
 	}
 }
 
@@ -102,6 +103,13 @@ func GetObjectByCRDName(dmClient *datamodel.Clientset, crdName string, name stri
 	}
 	if crdName == "ignorechilds.gns.tsm.tanzu.vmware.com" {
 		obj, err := dmClient.GnsTsmV1().IgnoreChilds().Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return nil
+		}
+		return obj
+	}
+	if crdName == "optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com" {
+		obj, err := dmClient.OptionalparentpathparamTsmV1().OptionalParentPathParams().Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			return nil
 		}

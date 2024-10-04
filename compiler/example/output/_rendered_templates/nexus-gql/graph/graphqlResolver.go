@@ -1024,6 +1024,73 @@ vName := string(vBarChild.Spec.Name)
 }
 //////////////////////////////////////
 // CHILDREN RESOLVER
+// FieldName: TestOptionalParentPathParamChild Node: Gns PKG: Gns
+//////////////////////////////////////
+func getGnsGnsTestOptionalParentPathParamChildResolver(obj *model.GnsGns, id *string) ([]*model.OptionalparentpathparamOptionalParentPathParam, error) {
+	log.Debugf("[getGnsGnsTestOptionalParentPathParamChildResolver]Parent Object %+v", obj)
+	var vOptionalparentpathparamOptionalParentPathParamList []*model.OptionalparentpathparamOptionalParentPathParam
+	if id != nil && *id != "" {
+		log.Debugf("[getGnsGnsTestOptionalParentPathParamChildResolver]Id %q", *id)
+		vOptionalParentPathParam, err := nc.RootRoot().Config(getParentName(obj.ParentLabels, "configs.config.tsm.tanzu.vmware.com")).GNS(getParentName(obj.ParentLabels, "gnses.gns.tsm.tanzu.vmware.com")).GetTestOptionalParentPathParamChild(context.TODO(), *id)
+		if err != nil {
+			log.Errorf("[getGnsGnsTestOptionalParentPathParamChildResolver]Error getting TestOptionalParentPathParamChild node %q : %s", *id, err)
+            return vOptionalparentpathparamOptionalParentPathParamList, nil
+        }
+		dn := vOptionalParentPathParam.DisplayName()
+parentLabels := map[string]interface{}{"optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com":dn}
+
+        for k, v := range obj.ParentLabels {
+            parentLabels[k] = v
+        }
+		ret := &model.OptionalparentpathparamOptionalParentPathParam {
+	Id: &dn,
+	ParentLabels: parentLabels,
+	}
+		vOptionalparentpathparamOptionalParentPathParamList = append(vOptionalparentpathparamOptionalParentPathParamList, ret)
+
+		log.Debugf("[getGnsGnsTestOptionalParentPathParamChildResolver]Output TestOptionalParentPathParamChild objects %v", vOptionalparentpathparamOptionalParentPathParamList)
+
+		return vOptionalparentpathparamOptionalParentPathParamList, nil
+	}
+
+	log.Debug("[getGnsGnsTestOptionalParentPathParamChildResolver]Id is empty, process all TestOptionalParentPathParamChilds")
+
+	vOptionalParentPathParamParent, err := nc.RootRoot().Config(getParentName(obj.ParentLabels, "configs.config.tsm.tanzu.vmware.com")).GetGNS(context.TODO(), getParentName(obj.ParentLabels, "gnses.gns.tsm.tanzu.vmware.com"))
+	if err != nil {
+	    log.Errorf("[getGnsGnsTestOptionalParentPathParamChildResolver]Error getting parent node %s", err)
+        return vOptionalparentpathparamOptionalParentPathParamList, nil
+    }
+	vOptionalParentPathParamAllObj, err := vOptionalParentPathParamParent.GetAllTestOptionalParentPathParamChild(context.TODO())
+	if err != nil {
+	    log.Errorf("[getGnsGnsTestOptionalParentPathParamChildResolver]Error getting TestOptionalParentPathParamChild objects %s", err)
+        return vOptionalparentpathparamOptionalParentPathParamList, nil
+    }
+	for _, i := range vOptionalParentPathParamAllObj {
+		vOptionalParentPathParam, err := nc.RootRoot().Config(getParentName(obj.ParentLabels, "configs.config.tsm.tanzu.vmware.com")).GNS(getParentName(obj.ParentLabels, "gnses.gns.tsm.tanzu.vmware.com")).GetTestOptionalParentPathParamChild(context.TODO(), i.DisplayName())
+		if err != nil {
+	        log.Errorf("[getGnsGnsTestOptionalParentPathParamChildResolver]Error getting TestOptionalParentPathParamChild node %q : %s", i.DisplayName(), err)
+            continue
+		}
+		dn := vOptionalParentPathParam.DisplayName()
+parentLabels := map[string]interface{}{"optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com":dn}
+
+		for k, v := range obj.ParentLabels {
+            parentLabels[k] = v
+        }
+		ret := &model.OptionalparentpathparamOptionalParentPathParam {
+	Id: &dn,
+	ParentLabels: parentLabels,
+	}
+		vOptionalparentpathparamOptionalParentPathParamList = append(vOptionalparentpathparamOptionalParentPathParamList, ret)
+	}
+
+	log.Debugf("[getGnsGnsTestOptionalParentPathParamChildResolver]Output TestOptionalParentPathParamChild objects %v", vOptionalparentpathparamOptionalParentPathParamList)
+
+	return vOptionalparentpathparamOptionalParentPathParamList, nil
+}
+
+//////////////////////////////////////
+// CHILDREN RESOLVER
 // FieldName: PolicyConfigs Node: AccessControlPolicy PKG: Policypkg
 //////////////////////////////////////
 func getPolicypkgAccessControlPolicyPolicyConfigsResolver(obj *model.PolicypkgAccessControlPolicy, id *string) ([]*model.PolicypkgACPConfig, error) {

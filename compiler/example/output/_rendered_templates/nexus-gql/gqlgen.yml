@@ -60,6 +60,8 @@ models:
         resolver: true
       queryGnsQM:
         resolver: true
+      TestOptionalParentPathParamChild:
+        resolver: true
       GnsAccessControlPolicy:
         resolver: true
       FooChild:

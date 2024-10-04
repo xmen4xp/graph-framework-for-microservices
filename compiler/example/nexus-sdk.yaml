@@ -1,3 +1,5 @@
 groupName: "tsm.tanzu.vmware.com"
 ignoredDirs:
   - "ignored"
+ignoredParentPathParams:
+  - "config.Config"

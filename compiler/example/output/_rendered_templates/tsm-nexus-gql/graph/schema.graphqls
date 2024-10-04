@@ -73,6 +73,7 @@ type Gns_Gns @nexus(group:"gns.tsm.tanzu.vmware.com",version:"v1",kind:"Gns",res
     ): TimeSeriesData @timeseriesAPI(file: "../../tsquery/timeSeriesQuery", handler: "queryGnsQM")
     gnsAccessControlPolicy: String
     fooChild: String
+    testOptionalParentPathParamChild(id: ID): [Optionalparentpathparam_OptionalParentPathParam!]
     domain: String
     useSharedGateway: Boolean
     annotations: String @jsonencoded
@@ -103,6 +104,10 @@ type Gns_IgnoreChild @nexus(group:"gns.tsm.tanzu.vmware.com",version:"v1",kind:"
 }
 
 type Gns_Dns @nexus(group:"gns.tsm.tanzu.vmware.com",version:"v1",kind:"Dns",resource:"dnses",name:"Dns",crdName:"dnses.gns.tsm.tanzu.vmware.com",singleton:"true"){
+    id: ID
+}
+
+type Optionalparentpathparam_OptionalParentPathParam @nexus(group:"optionalparentpathparam.tsm.tanzu.vmware.com",version:"v1",kind:"OptionalParentPathParam",resource:"optionalparentpathparams",name:"OptionalParentPathParam",crdName:"optionalparentpathparams.optionalparentpathparam.tsm.tanzu.vmware.com",singleton:"false"){
     id: ID
 }
 

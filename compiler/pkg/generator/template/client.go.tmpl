@@ -57,7 +57,7 @@ var informerResyncPeriod time.Duration = 36000
 
 type Clientset struct {
 	baseClient baseClientset.Interface
-	dynamicClient               dynamic.Interface
+	DynamicClient               dynamic.Interface
 	{{ range $key, $group := .ApiGroups }}{{$group.ClientsetApiGroups}}{{ end }}
 }
 
@@ -138,7 +138,7 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 
 	client := &Clientset{}
 	client.baseClient = baseClient
-	client.dynamicClient, _ = dynamic.NewForConfig(config) // TBD: check and react for error
+	client.DynamicClient, _ = dynamic.NewForConfig(config) // TBD: check and react for error
 	{{ range $key, $group := .ApiGroups }}{{$group.InitApiGroups}}{{ end }}
 
 	return client, nil
@@ -149,7 +149,7 @@ func NewFakeClient() *Clientset {
 	client := &Clientset{}
 	scheme := runtime.NewScheme()
 	client.baseClient = fakeBaseClienset.NewSimpleClientset()
-	client.dynamicClient = fakeDynamicClientset.NewSimpleDynamicClient(scheme)
+	client.DynamicClient = fakeDynamicClientset.NewSimpleDynamicClient(scheme)
 	{{ range $key, $group := .ApiGroups }}{{$group.InitApiGroups}}{{ end }}
 	return client
 }
@@ -538,7 +538,7 @@ func (group *{{$node.GroupTypeName}}) Set{{$node.BaseNodeName}}{{$node.StatusNam
 	newCtx := context.TODO()
 	retryCount := 0
 	for {
-		_, err := group.client.dynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
+		_, err := group.client.DynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
 		if err == nil {
 			log.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node %s successful", hashedName)
 			break
