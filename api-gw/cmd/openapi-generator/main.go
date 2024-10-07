@@ -74,19 +74,22 @@ func run(dir, datamodelName, outputFilePath string) {
 
 		crdJson, err := yamlv1.YAMLToJSON(fileSpec)
 		if err != nil {
-			log.Panicf("unable to process crd spec from file %s\n", file.Name())
+			log.Fatalf("unable to render crd spec from file %s\n", file.Name())
 		}
 
 		// Marshal file content to a CRD spec.
 		var crd apiextensionsv1.CustomResourceDefinition
 		err = json.Unmarshal(crdJson, &crd)
 		if err != nil {
-			log.Panicf("unable to process crd spec from file %s\n", file.Name())
+			log.Fatalf("unable to unmarshal crd spec from file %s\n", file.Name())
 		}
 
 		if nexus_ann, ok := crd.Annotations["nexus"]; ok {
 			var nexus_annotation model.NexusAnnotation
-			json.Unmarshal([]byte(nexus_ann), &nexus_annotation)
+			err := json.Unmarshal([]byte(nexus_ann), &nexus_annotation)
+			if err != nil {
+				log.Fatalf("error processing nexus annotation [%s] from file %s\n", nexus_ann, file.Name())
+			}
 
 			eventType := model.Upsert
 			children := make(map[string]model.NodeHelperChild)
@@ -129,7 +132,10 @@ func run(dir, datamodelName, outputFilePath string) {
 	for _, uri := range nexusUris {
 		api.AddPath(uri, datamodelName)
 	}
-	spec, _ := json.MarshalIndent(api.Schemas[datamodelName], "", "  ")
+	spec, err := json.MarshalIndent(api.Schemas[datamodelName], "", "  ")
+	if err != nil {
+		log.Fatalf("failed to construct api schema for datamodel %s with error %v", datamodelName, err)
+	}
 
 	// If output file is specified, write the generated openapi spec to the file.
 	if outputFilePath != "" {
