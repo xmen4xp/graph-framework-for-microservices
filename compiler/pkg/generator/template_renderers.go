@@ -40,6 +40,9 @@ var typesTemplateFile []byte
 //go:embed template/crd_base.yaml.tmpl
 var crdBaseTemplateFile []byte
 
+//go:embed template/clusterrole.yaml.tmpl
+var clusterRoleTemplate []byte
+
 //go:embed template/helper.go.tmpl
 var helperTemplateFile []byte
 
@@ -72,6 +75,7 @@ func RenderCRDTemplate(baseGroupName, crdModulePath string,
 	parentsMap := parser.CreateParentsMap(graph)
 
 	pkgNames := make([]string, len(pkgs))
+	clusterRoleRules := make(map[string][]string)
 	i := 0
 	for _, pkg := range pkgs {
 		groupName := pkg.Name + "." + baseGroupName
@@ -132,9 +136,19 @@ func RenderCRDTemplate(baseGroupName, crdModulePath string,
 				return err
 			}
 		}
+		constructClusterRoleRules(baseGroupName, pkg, clusterRoleRules)
 	}
 
-	err := RenderHelper(parentsMap, outputDir, crdModulePath)
+	crFile, err := RenderClusterRoleTemplate(baseGroupName, clusterRoleRules)
+	if err != nil {
+		return err
+	}
+	err = createFile(outputDir+"/clusterroles", "clusterrole.yaml", crFile, false)
+	if err != nil {
+		return err
+	}
+
+	err = RenderHelper(parentsMap, outputDir, crdModulePath)
 	if err != nil {
 		return err
 	}
@@ -376,6 +390,46 @@ type NexusAnnotation struct {
 type CrdBaseFile struct {
 	Name string
 	File *bytes.Buffer
+}
+
+type Rule struct {
+	ApiGroup  string
+	Resources []string
+}
+
+type ClusterRoleVars struct {
+	ReadRoleName  string
+	WriteRoleName string
+	Rules         []Rule
+}
+
+func constructClusterRoleRules(baseGroupName string, pkg parser.Package, ruleMap map[string][]string) {
+	for _, node := range pkg.GetNexusNodes() {
+		typeName := parser.GetTypeName(node)
+		groupName := pkg.Name + "." + baseGroupName
+		resourceName := strings.ToLower(util.ToPlural(typeName))
+		ruleMap[groupName] = append(ruleMap[groupName], resourceName)
+	}
+}
+
+func RenderClusterRoleTemplate(baseGroupName string, ruleMap map[string][]string) (*bytes.Buffer, error) {
+	var vars ClusterRoleVars
+	vars.ReadRoleName = baseGroupName + "-read-role"
+	vars.WriteRoleName = baseGroupName + "-write-role"
+
+	// Create rules from groupMap
+	for key, val := range ruleMap {
+		vars.Rules = append(vars.Rules, Rule{ApiGroup: key, Resources: val})
+	}
+	crTemplate, err := readTemplateFile(clusterRoleTemplate)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err := renderTemplate(crTemplate, vars)
+	if err != nil {
+		return nil, err
+	}
+	return tmpl, nil
 }
 
 func RenderCRDBaseTemplate(baseGroupName string, pkg parser.Package, parentsMap map[string]parser.NodeHelper,
