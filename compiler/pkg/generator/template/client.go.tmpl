@@ -44,7 +44,7 @@ fakeBaseClienset {{.FakeBaseCliensetImport}}
 {{.InformerImports}}
 )
 
-var log = logrus.New()
+var logger = logrus.New()
 const maxRetryCount = 60
 const sleepTime = 5
 const maxRetryCount1SecSleep = 300
@@ -117,11 +117,11 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 
 	customFormatter := new(logrus.TextFormatter)
 	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-	log.SetFormatter(customFormatter)
+	logger.SetFormatter(customFormatter)
 	customFormatter.FullTimestamp = true
 	if os.Getenv("NEXUS_LOG_LEVEL") == "debug" {
-		log.SetLevel(logrus.DebugLevel)
-		log.Debug("Nexus debug log enabled")
+		logger.SetLevel(logrus.DebugLevel)
+		logger.Debug("Nexus debug log enabled")
 	}
 
 	// INFORMER_RESYNC_PERIOD is os env to set Resync Period for informers
@@ -129,10 +129,10 @@ func NewForConfig(config *rest.Config) (*Clientset, error) {
 	if 	stringResyncPeriod != "" {
 		intResyncPeriod, err := strconv.Atoi(stringResyncPeriod)
 		if err != nil {
-			log.Errorf("env INFORMER_RESYNC_PERIOD is not set with correct value")
+			logger.Errorf("env INFORMER_RESYNC_PERIOD is not set with correct value")
 		} else {
 			informerResyncPeriod = time.Duration(intResyncPeriod)
-			log.Debugf("Resync Period for informers is set to %+v second", informerResyncPeriod)
+			logger.Debugf("Resync Period for informers is set to %+v second", informerResyncPeriod)
 		}
 	}
 
@@ -205,11 +205,11 @@ func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ByName(ctx contex
 		resWrCache, inWrCache := s.(subscription).WriteCacheObjects.Load(hashedName)
 		item, exists, _ := s.(subscription).informer.GetStore().GetByKey(hashedName)
 		if exists {
-			log.Debugf("[Get{{$node.BaseNodeName}}ByName] Object: %s exists in cache", hashedName)
+			logger.Debugf("[Get{{$node.BaseNodeName}}ByName] Object: %s exists in cache", hashedName)
 			resultCache, _ := item.(*{{$node.GroupBaseImport}})
 			subsCacheVersion, subsCacheVersionErr := strconv.Atoi(resultCache.ResourceVersion)
 			if subsCacheVersionErr != nil {
-				log.Fatalf("[Get{{$node.BaseNodeName}}ByName] Getting version of Object: %s failed with error %v", hashedName, subsCacheVersionErr)
+				logger.Fatalf("[Get{{$node.BaseNodeName}}ByName] Getting version of Object: %s failed with error %v", hashedName, subsCacheVersionErr)
 			}
 
 			writeCacheVersion := 0
@@ -217,7 +217,7 @@ func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ByName(ctx contex
 			if inWrCache {
 				writeCacheVersion, writeCacheVersionErr = strconv.Atoi(resWrCache.(*{{$node.GroupBaseImport}}).ResourceVersion)
 				if writeCacheVersionErr != nil {
-					log.Fatalf("[Get{{$node.BaseNodeName}}ByName] Getting version of Object: %s in write cache failed with error %v", hashedName, writeCacheVersionErr)
+					logger.Fatalf("[Get{{$node.BaseNodeName}}ByName] Getting version of Object: %s in write cache failed with error %v", hashedName, writeCacheVersionErr)
 				}
 			}
 
@@ -250,22 +250,22 @@ func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ByName(ctx contex
 				{{$node.BaseNodeName}}: result,
 			}, nil
 		} else if errors.IsNotFound(err) {
-			log.Debugf("[Get{{$node.BaseNodeName}}ByName]: object %v not found", hashedName)
+			logger.Debugf("[Get{{$node.BaseNodeName}}ByName]: object %v not found", hashedName)
 			return nil, err
 		} else {
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
+				logger.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on Get {{$node.GroupResourceNameTitle}}: %s",hashedName)
+					logger.Errorf("Max retry exceed on Get {{$node.GroupResourceNameTitle}}: %s",hashedName)
 					return nil, err
 				}
 				retryCount +=1
 				time.Sleep(sleepTime * time.Second)
 			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Get{{$node.BaseNodeName}}ByName]: %+v",err)
+				logger.Errorf("[Get{{$node.BaseNodeName}}ByName]: %+v",err)
 				return nil, context.Canceled
 			} else {
-				log.Errorf("[Get{{$node.BaseNodeName}}ByName]: %+v",err)
+				logger.Errorf("[Get{{$node.BaseNodeName}}ByName]: %+v",err)
 				return nil, err
 			}
 		}
@@ -275,31 +275,31 @@ func (group *{{$node.GroupTypeName}}) Get{{$node.BaseNodeName}}ByName(ctx contex
 // ForceRead{{$node.BaseNodeName}}ByName read object directly from the database under the hashedName which is a hash of display
 // name and parents names. Use it when you know hashed name of object.
 func (group *{{$node.GroupTypeName}}) ForceRead{{$node.BaseNodeName}}ByName(ctx context.Context, hashedName string) (*{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, error) {
-	log.Debugf("[ForceRead{{$node.BaseNodeName}}ByName] Received object :%s to read from DB",hashedName)
+	logger.Debugf("[ForceRead{{$node.BaseNodeName}}ByName] Received object :%s to read from DB",hashedName)
 	retryCount := 0
 	for {
 		result, err := group.client.baseClient.
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Get(ctx, hashedName, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("[ForceRead{{$node.BaseNodeName}}ByName] Failed to Get {{$node.GroupResourceNameTitle}}: %+v",err)
+			logger.Errorf("[ForceRead{{$node.BaseNodeName}}ByName] Failed to Get {{$node.GroupResourceNameTitle}}: %+v",err)
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Errorf("[Retry Count: %d ] %+v",retryCount,err)
+				logger.Errorf("[Retry Count: %d ] %+v",retryCount,err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max Retry exceed on Get {{$node.GroupResourceNameTitle}}: %s",hashedName)
+					logger.Errorf("Max Retry exceed on Get {{$node.GroupResourceNameTitle}}: %s",hashedName)
 					return nil, err
 				}
 				retryCount +=1
 				time.Sleep(sleepTime * time.Second)
 			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[ForceRead{{$node.BaseNodeName}}ByName]: %+v",err)
+				logger.Errorf("[ForceRead{{$node.BaseNodeName}}ByName]: %+v",err)
 				return nil, context.Canceled
 			} else {
-				log.Errorf("[ForceRead{{$node.BaseNodeName}}ByName]: %+v",err)
+				logger.Errorf("[ForceRead{{$node.BaseNodeName}}ByName]: %+v",err)
 				return nil, err
 			}
 		} else {
-			log.Debugf("[ForceRead{{$node.BaseNodeName}}ByName] Executed Successfully :%s",hashedName)
+			logger.Debugf("[ForceRead{{$node.BaseNodeName}}ByName] Executed Successfully :%s",hashedName)
 			return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 				client: group.client,
 				{{$node.BaseNodeName}}: result,
@@ -311,7 +311,7 @@ func (group *{{$node.GroupTypeName}}) ForceRead{{$node.BaseNodeName}}ByName(ctx 
 // Delete{{$node.BaseNodeName}}ByName deletes object stored in the database under the hashedName which is a hash of
 // display name and parents names. Use it when you know hashed name of object.
 func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx context.Context, hashedName string) (err error) {
-	log.Debugf("[Delete{{$node.BaseNodeName}}ByName] Received objectToDelete: %s", hashedName)
+	logger.Debugf("[Delete{{$node.BaseNodeName}}ByName] Received objectToDelete: %s", hashedName)
 	var (
 		retryCount int
 		result *{{$node.GroupBaseImport}}
@@ -323,23 +323,23 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Get(ctx, hashedName, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Failed to get {{$node.GroupResourceNameTitle}}: %+v",err)
+			logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] Failed to get {{$node.GroupResourceNameTitle}}: %+v",err)
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
+				logger.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on get {{$node.GroupResourceNameTitle}}: %s",hashedName)
+					logger.Errorf("Max retry exceed on get {{$node.GroupResourceNameTitle}}: %s",hashedName)
 					return err
 				}
 				retryCount +=1
 				time.Sleep(sleepTime * time.Second)
 			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName] context canceled: %s",hashedName)
+				logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] context canceled: %s",hashedName)
 				return context.Canceled
 			} else if errors.IsNotFound(err){
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s not found",hashedName)
+				logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s not found",hashedName)
 				break
 			} else {
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",hashedName,err)
+				logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",hashedName,err)
 				return err
 			}
 		} else {
@@ -367,23 +367,23 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Delete(ctx, hashedName, metav1.DeleteOptions{})
 		if err != nil {
-			log.Errorf("[Delete{{$node.BaseNodeName}}ByName] failed to delete {{$node.GroupResourceNameTitle}}: %+v",err)
+			logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] failed to delete {{$node.GroupResourceNameTitle}}: %+v",err)
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded) {
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
+				logger.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,hashedName, err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on delete {{$node.GroupResourceNameTitle}}: %s",hashedName)
+					logger.Errorf("Max retry exceed on delete {{$node.GroupResourceNameTitle}}: %s",hashedName)
 					return err
 				}
 				retryCount +=1
 				time.Sleep(sleepTime * time.Second)
 			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName]: context canceled: %s",hashedName)
+				logger.Errorf("[Delete{{$node.BaseNodeName}}ByName]: context canceled: %s",hashedName)
 				return context.Canceled
 			} else if errors.IsNotFound(err){
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s not found",hashedName)
+				logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s not found",hashedName)
 				break
 			} else {
-				log.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",hashedName,err)
+				logger.Errorf("[Delete{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",hashedName,err)
 				return err
 			}
 		} else {
@@ -395,7 +395,7 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 	}
 	// Get Parent Node and check if gvk present before patch
 	{{if .Parent.HasParent}}
-	log.Debugf("[Delete{{$node.BaseNodeName}}ByName] Get parent details for object: %s",hashedName)
+	logger.Debugf("[Delete{{$node.BaseNodeName}}ByName] Get parent details for object: %s",hashedName)
 	// var patch Patch
 	parents := result.GetLabels()
 	if parents == nil {
@@ -403,10 +403,10 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 	}
 	parentName, ok := parents["{{$node.Parent.CrdName}}"]
 	if !ok {
-		parentName = helper.DEFAULT_KEY
+		parentName = helper.DefaultKey
 	}
 	if result.GetLabels() != nil {
-		if parents[common.IS_NAME_HASHED_LABEL] == "true" {
+		if parents[common.IsNameHashedLabel] == "true" {
 			parentName = helper.GetHashedName("{{$node.Parent.CrdName}}", parents, parentName)
 		}
 	} else {
@@ -421,22 +421,22 @@ func (group *{{$node.GroupTypeName}}) Delete{{$node.BaseNodeName}}ByName(ctx con
 // Use it directly ONLY when objToCreate.Name is hashed name of the object.
 func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx context.Context,
 	objToCreate *{{$node.GroupBaseImport}}) (*{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, error) {
-	log.Debugf("[Create{{$node.BaseNodeName}}ByName] Received objToCreate: %s",objToCreate.GetName())
+	logger.Debugf("[Create{{$node.BaseNodeName}}ByName] Received objToCreate: %s",objToCreate.GetName())
 	if objToCreate.GetLabels() == nil {
 		objToCreate.Labels = make(map[string]string)
 	}
-	if _, ok := objToCreate.Labels[common.DISPLAY_NAME_LABEL]; !ok {
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
+	if _, ok := objToCreate.Labels[common.DisplayNameLabel]; !ok {
+		objToCreate.Labels[common.DisplayNameLabel] = objToCreate.GetName()
 	}
-	{{if $node.IsSingleton }}if objToCreate.Labels[common.DISPLAY_NAME_LABEL] == "" {
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = helper.DEFAULT_KEY
+	{{if $node.IsSingleton }}if objToCreate.Labels[common.DisplayNameLabel] == "" {
+		objToCreate.Labels[common.DisplayNameLabel] = helper.DefaultKey
 	}
-	if objToCreate.Labels[common.DISPLAY_NAME_LABEL] != helper.DEFAULT_KEY {
-		return nil, NewSingletonNameError(objToCreate.Labels[common.DISPLAY_NAME_LABEL])
+	if objToCreate.Labels[common.DisplayNameLabel] != helper.DefaultKey {
+		return nil, NewSingletonNameError(objToCreate.Labels[common.DisplayNameLabel])
 	}{{end}}
 
 	{{if $node.DeferredDelete}}
-	log.Debugf("[Create{{$node.BaseNodeName}}ByName] Node is marked for deferred delete: %s", objToCreate.GetName())
+	logger.Debugf("[Create{{$node.BaseNodeName}}ByName] Node is marked for deferred delete: %s", objToCreate.GetName())
 	found := false
 	for _, finalizer := range objToCreate.Finalizers {
 		if finalizer == nexusDeferredDeleteAnnotation {
@@ -446,7 +446,7 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 	}
 	if !found {
 		objToCreate.Finalizers = append(objToCreate.Finalizers, nexusDeferredDeleteAnnotation)
-		log.Debugf("[Create{{$node.BaseNodeName}}ByName] Added %s finalizer to node: %s", nexusDeferredDeleteAnnotation, objToCreate.GetName())
+		logger.Debugf("[Create{{$node.BaseNodeName}}ByName] Added %s finalizer to node: %s", nexusDeferredDeleteAnnotation, objToCreate.GetName())
 	}
 	{{end}}
 
@@ -463,33 +463,33 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Create(ctx, objToCreate, metav1.CreateOptions{})
 		if err != nil {
-			log.Errorf("[Create{{$node.BaseNodeName}}ByName] Failed to create {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
+			logger.Errorf("[Create{{$node.BaseNodeName}}ByName] Failed to create {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToCreate.GetName(),err)
+				logger.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToCreate.GetName(),err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on create {{$node.BaseNodeName}}: %s",objToCreate.GetName())
+					logger.Errorf("Max retry exceed on create {{$node.BaseNodeName}}: %s",objToCreate.GetName())
 					return nil,err
 				}
 				retryCount +=1
 				time.Sleep(sleepTime * time.Second)
 			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Create{{$node.BaseNodeName}}ByName] context canceled while creating {{$node.BaseNodeName}}: %s",objToCreate.GetName())
+				logger.Errorf("[Create{{$node.BaseNodeName}}ByName] context canceled while creating {{$node.BaseNodeName}}: %s",objToCreate.GetName())
 				return nil,context.Canceled
 			}{{if .Parent.HasParent}} else if errors.IsAlreadyExists(err) {
-				log.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s already exists, error: %+v",objToCreate.GetName(), err)
+				logger.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s already exists, error: %+v",objToCreate.GetName(), err)
 				result, err = group.client.baseClient.{{$node.GroupTypeName}}().{{$node.GroupResourceNameTitle}}().Get(ctx, objToCreate.GetName(), metav1.GetOptions{})
 				if err != nil {
-					log.Fatalf("[Create{{$node.BaseNodeName}}ByName] Unable to Get {{$node.BaseNodeName}} %s after it was flagged as already exists, error: %+v", objToCreate.GetName(), err)
+					logger.Fatalf("[Create{{$node.BaseNodeName}}ByName] Unable to Get {{$node.BaseNodeName}} %s after it was flagged as already exists, error: %+v", objToCreate.GetName(), err)
 				}
 				break
 			}{{ end }} else {
-				log.Errorf("[Create{{$node.BaseNodeName}}ByName] found unexpected error while creating {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
+				logger.Errorf("[Create{{$node.BaseNodeName}}ByName] found unexpected error while creating {{$node.BaseNodeName}}: %s, error: %+v",objToCreate.GetName(),err)
 				return nil,err
 			}
 		} else {
-			log.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s created successfully",objToCreate.GetName())
+			logger.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s created successfully",objToCreate.GetName())
 			if s, ok := subscriptionMap.Load("{{$node.CrdName}}"); ok {
-				log.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s stored in wr-cache",objToCreate.GetName())
+				logger.Debugf("[Create{{$node.BaseNodeName}}ByName] {{$node.BaseNodeName}}: %s stored in wr-cache",objToCreate.GetName())
 				s.(subscription).WriteCacheObjects.Store(objToCreate.GetName(), result)
 			}
 			break
@@ -498,14 +498,14 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 	{{if .Parent.HasParent}}
 	parentName, ok := objToCreate.GetLabels()["{{$node.Parent.CrdName}}"]
 	if !ok {
-		parentName = helper.DEFAULT_KEY
+		parentName = helper.DefaultKey
 	}
 	parentHashedName := helper.GetHashedName("{{$node.Parent.CrdName}}", objToCreate.GetLabels(), parentName)
 
 	AddChild("{{$node.Parent.CrdName}}", parentHashedName, "{{$node.CrdName}}", objToCreate.Name)
 	{{ end }}
 
-	log.Debugf("[Create{{$node.BaseNodeName}}ByName] Executed Successfully: %s",objToCreate.GetName())
+	logger.Debugf("[Create{{$node.BaseNodeName}}ByName] Executed Successfully: %s",objToCreate.GetName())
 	return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 		client: group.client,
 		{{$node.BaseNodeName}}: result,
@@ -516,7 +516,7 @@ func (group *{{$node.GroupTypeName}}) Create{{$node.BaseNodeName}}ByName(ctx con
 // Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName sets user defined status
 func (group *{{$node.GroupTypeName}}) Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName(ctx context.Context,
 	objToUpdate *{{$node.GroupBaseImport}}, status *{{$node.BaseImportName}}.{{$node.StatusType}}) (*{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, error) {
-	log.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Received objToUpdate:%s",objToUpdate.GetName())
+	logger.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Received objToUpdate:%s",objToUpdate.GetName())
 
 	gvr := schema.GroupVersionResource{
 		Group:    "{{$node.Group}}",
@@ -540,11 +540,11 @@ func (group *{{$node.GroupTypeName}}) Set{{$node.BaseNodeName}}{{$node.StatusNam
 	for {
 		_, err := group.client.DynamicClient.Resource(gvr).UpdateStatus(ctx, &unstructured.Unstructured{Object: mapInterface}, metav1.UpdateOptions{})
 		if err == nil {
-			log.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node %s successful", hashedName)
+			logger.Debugf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node %s successful", hashedName)
 			break
 		}
 
-		log.Errorf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node: %s failed with error %v. Retrying...", hashedName, err)
+		logger.Errorf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Updating status for {{$node.BaseNodeName}} node: %s failed with error %v. Retrying...", hashedName, err)
 
 		updatedObj, err:= group.ForceRead{{$node.BaseNodeName}}ByName(newCtx, hashedName)
 		if err == nil {
@@ -555,7 +555,7 @@ func (group *{{$node.GroupTypeName}}) Set{{$node.BaseNodeName}}{{$node.StatusNam
 
 		retryCount += 1
 		if retryCount == maxRetryCount1SecSleep {
-			log.Fatalf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Max retry exceeded for updating status for {{$node.BaseNodeName}} node: %s", hashedName)
+			logger.Fatalf("[Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName] Max retry exceeded for updating status for {{$node.BaseNodeName}} node: %s", hashedName)
 			return nil, err
 		}
 		time.Sleep(time.Second)
@@ -592,9 +592,9 @@ func (group *{{$node.GroupTypeName}}) Set{{$node.BaseNodeName}}{{$node.StatusNam
 // display name and parents names.
 func (group *{{$node.GroupTypeName}}) Update{{$node.BaseNodeName}}ByName(ctx context.Context,
 	objToUpdate *{{$node.GroupBaseImport}}) (*{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, error) {
-	log.Debugf("[Update{{$node.BaseNodeName}}ByName] Received objToUpdate: %s",objToUpdate.GetName())
-	{{if $node.IsSingleton }}if objToUpdate.Labels[common.DISPLAY_NAME_LABEL] != helper.DEFAULT_KEY {
-		return nil, NewSingletonNameError(objToUpdate.Labels[common.DISPLAY_NAME_LABEL])
+	logger.Debugf("[Update{{$node.BaseNodeName}}ByName] Received objToUpdate: %s",objToUpdate.GetName())
+	{{if $node.IsSingleton }}if objToUpdate.Labels[common.DisplayNameLabel] != helper.DefaultKey {
+		return nil, NewSingletonNameError(objToUpdate.Labels[common.DisplayNameLabel])
 	}{{end}}
 
 	var patch Patch
@@ -621,8 +621,8 @@ func (group *{{$node.GroupTypeName}}) Update{{$node.BaseNodeName}}ByName(ctx con
 			for _,k := range parentsList{
 				objToUpdate.Labels[k] = current.Labels[k]
 			}
-			objToUpdate.Labels[common.IS_NAME_HASHED_LABEL] = current.Labels[common.IS_NAME_HASHED_LABEL]
-			objToUpdate.Labels[common.DISPLAY_NAME_LABEL] = current.Labels[common.DISPLAY_NAME_LABEL]
+			objToUpdate.Labels[common.IsNameHashedLabel] = current.Labels[common.IsNameHashedLabel]
+			objToUpdate.Labels[common.DisplayNameLabel] = current.Labels[common.DisplayNameLabel]
 			patch = append(patch, PatchOp{
 				Op:    "replace",
 				Path:  "/metadata/labels",
@@ -676,46 +676,46 @@ func (group *{{$node.GroupTypeName}}) Update{{$node.BaseNodeName}}ByName(ctx con
 		{{$node.GroupTypeName}}().
 		{{$node.GroupResourceNameTitle}}().Patch(newCtx, objToUpdate.GetName(), types.JSONPatchType, marshaled, metav1.PatchOptions{}, "")
 		if err != nil {
-			log.Errorf("[Update{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} %s with error: %+v",objToUpdate.GetName(), err)
+			logger.Errorf("[Update{{$node.BaseNodeName}}ByName] Failed to patch {{$node.BaseNodeName}} %s with error: %+v",objToUpdate.GetName(), err)
 			if errors.IsTimeout(err) || customerrors.Is(err, context.DeadlineExceeded){
-				log.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToUpdate.GetName(),err)
+				logger.Debugf("[Retry count: (%d) obj: %s ] %+v",retryCount,objToUpdate.GetName(),err)
 				if retryCount == maxRetryCount {
-					log.Errorf("Max retry exceed on patching: %s",objToUpdate.GetName())
-					log.Debugf("Trigger {{$node.BaseNodeName}} Delete: %s",objToUpdate.GetName())
+					logger.Errorf("Max retry exceed on patching: %s",objToUpdate.GetName())
+					logger.Debugf("Trigger {{$node.BaseNodeName}} Delete: %s",objToUpdate.GetName())
 					delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToUpdate.GetName())
 					if delErr != nil {
-						log.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %s",objToUpdate.GetName())
+						logger.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %s",objToUpdate.GetName())
 						return nil, delErr
 					}
-					log.Debugf("{{$node.BaseNodeName}} deleted: %s",objToUpdate.GetName())
+					logger.Debugf("{{$node.BaseNodeName}} deleted: %s",objToUpdate.GetName())
 					return nil, err
 				}
 				retryCount +=1
 				time.Sleep(sleepTime * time.Second)
 			} else if customerrors.Is(err, context.Canceled){
-				log.Errorf("[Update{{$node.BaseNodeName}}ByName]: context canceled: %s",objToUpdate.GetName())
+				logger.Errorf("[Update{{$node.BaseNodeName}}ByName]: context canceled: %s",objToUpdate.GetName())
 				return nil, context.Canceled
 			} else {
-				log.Errorf("[Update{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",objToUpdate.GetName(),err)
-				log.Debugf("Trigger {{$node.BaseNodeName}} Delete: %s",objToUpdate.GetName())
+				logger.Errorf("[Update{{$node.BaseNodeName}}ByName] Object: %s unexpected error: %+v",objToUpdate.GetName(),err)
+				logger.Debugf("Trigger {{$node.BaseNodeName}} Delete: %s",objToUpdate.GetName())
 				delErr := group.Delete{{$node.BaseNodeName}}ByName(newCtx, objToUpdate.GetName())
 				if delErr != nil {
-					log.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %+v",objToUpdate.GetName())
+					logger.Debugf("Error occur while deleting {{$node.BaseNodeName}}: %+v",objToUpdate.GetName())
 					return nil, delErr
 				}
-				log.Debugf("{{$node.BaseNodeName}} Deleted: %s",objToUpdate.GetName())
+				logger.Debugf("{{$node.BaseNodeName}} Deleted: %s",objToUpdate.GetName())
 				return nil, err
 			}
 		} else {
-			log.Debugf("[Update{{$node.BaseNodeName}}ByName] Patch {{$node.BaseNodeName}} Success :%s",objToUpdate.GetName())
+			logger.Debugf("[Update{{$node.BaseNodeName}}ByName] Patch {{$node.BaseNodeName}} Success :%s",objToUpdate.GetName())
 			if s, ok := subscriptionMap.Load("{{$node.CrdName}}"); ok {
-				log.Debugf("[Update{{$node.BaseNodeName}}ByName] %s stored in wr-cache", objToUpdate.GetName())
+				logger.Debugf("[Update{{$node.BaseNodeName}}ByName] %s stored in wr-cache", objToUpdate.GetName())
 				s.(subscription).WriteCacheObjects.Store(objToUpdate.GetName(), result)
 			}
 			break
 		}
 	}
-	log.Debugf("[Update{{$node.BaseNodeName}}ByName] Executed Successfully %s",objToUpdate.GetName())
+	logger.Debugf("[Update{{$node.BaseNodeName}}ByName] Executed Successfully %s",objToUpdate.GetName())
 	return &{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{
 	client: group.client,
 		{{$node.BaseNodeName}}: result,
@@ -782,10 +782,10 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Update(ctx conte
 {{if .HasStatus}}
 // Set{{.StatusName}} sets user defined status
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Set{{.StatusName}}(ctx context.Context, status *{{$node.BaseImportName}}.{{$node.StatusType}}) error {
-	log.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Set{{.StatusName}}] Set status for object with name %s", obj.GetName())
+	logger.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Set{{.StatusName}}] Set status for object with name %s", obj.GetName())
 	result, err := obj.client.{{$node.SimpleGroupTypeName}}().Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName(ctx, obj.{{$node.BaseNodeName}}, status)
 	if err != nil {
-		log.Errorf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Set{{.StatusName}}] Set status for object with name %s failed with error %v", obj.GetName(), err)
+		logger.Errorf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Set{{.StatusName}}] Set status for object with name %s failed with error %v", obj.GetName(), err)
 		return err
 	}
 	obj.{{$node.BaseNodeName}} = result.{{$node.BaseNodeName}}
@@ -803,10 +803,10 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Get{{$node.Statu
 
 // Clear{{$node.StatusName}} to clear user defined status
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Clear{{$node.StatusName}}(ctx context.Context) error {
-	log.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Clear{{$node.StatusName}}] Set status for object with name %s", obj.GetName())
+	logger.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Clear{{$node.StatusName}}] Set status for object with name %s", obj.GetName())
 	result, err := obj.client.{{$node.SimpleGroupTypeName}}().Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName(ctx, obj.{{$node.BaseNodeName}}, &{{$node.BaseImportName}}.{{$node.StatusType}}{})
 	if err != nil {
-		log.Errorf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Clear{{$node.StatusName}}] Clear status for object with name %s failed with error %v", obj.GetName(), err)
+		logger.Errorf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} Clear{{$node.StatusName}}] Clear status for object with name %s failed with error %v", obj.GetName(), err)
 		return err
 	}
 	obj.{{$node.BaseNodeName}} = result.{{$node.BaseNodeName}}
@@ -817,7 +817,7 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Clear{{$node.Sta
 {{ if .Parent.HasParent }}
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetParent(ctx context.Context) (result *{{$node.Parent.SimpleGroupTypeName}}{{$node.Parent.BaseNodeName}}, err error) {
 	hashedName := helper.GetHashedName("{{$node.Parent.CrdName}}", obj.Labels, obj.Labels["{{$node.Parent.CrdName}}"])
-	log.Debugf("[GetParent] Get parent of {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} name %s [labels %#v] of parent type {{$node.Parent.CrdName}} and name %s", obj.Name, obj.Labels, hashedName)
+	logger.Debugf("[GetParent] Get parent of {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} name %s [labels %#v] of parent type {{$node.Parent.CrdName}} and name %s", obj.Name, obj.Labels, hashedName)
 	return obj.client.{{$node.Parent.SimpleGroupTypeName}}().Get{{$node.Parent.BaseNodeName}}ByName(ctx, hashedName)
 }
 {{ end }}
@@ -827,36 +827,36 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetParent(ctx co
 // Get{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} calculates the hashed name based on parents and
 // returns given object
 func (c *Clientset) Get{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}(ctx context.Context) (result *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, err error) {
-	hashedName := helper.GetHashedName("{{$node.CrdName}}", nil, helper.DEFAULT_KEY)
+	hashedName := helper.GetHashedName("{{$node.CrdName}}", nil, helper.DefaultKey)
 	return c.{{$node.SimpleGroupTypeName}}().Get{{$node.BaseNodeName}}ByName(ctx, hashedName)
 }
 
 func (c *Clientset) {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}() *{{$node.GroupResourceType}}Chainer {
 	parentLabels := make(map[string]string)
-	parentLabels["{{$node.CrdName}}"] = helper.DEFAULT_KEY
+	parentLabels["{{$node.CrdName}}"] = helper.DefaultKey
 	return &{{$node.GroupResourceType}}Chainer{
 		client:       c,
-		name:  helper.DEFAULT_KEY,
+		name:  helper.DefaultKey,
 		parentLabels: parentLabels,
 	}
 }
 // Add{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} calculates hashed name of the object based on
-// parents names and creates it. objToCreate.Name is changed to the hashed name. Original name (helper.DEFAULT_KEY) is preserved in
+// parents names and creates it. objToCreate.Name is changed to the hashed name. Original name (helper.DefaultKey) is preserved in
 // nexus/display_name label and can be obtained using DisplayName() method.
 func (c *Clientset) Add{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}(ctx context.Context,
 		objToCreate *{{$node.GroupBaseImport}}) (result *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}, err error) {
 	if objToCreate.GetName() == "" {
-		objToCreate.SetName(helper.DEFAULT_KEY)
+		objToCreate.SetName(helper.DefaultKey)
 	}
-	if objToCreate.GetName() != helper.DEFAULT_KEY {
+	if objToCreate.GetName() != helper.DefaultKey {
 		return nil, NewSingletonNameError(objToCreate.GetName())
 	}
 	if objToCreate.Labels == nil {
 		objToCreate.Labels = map[string]string{}
 	}
-	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" {
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
-		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+	if objToCreate.Labels[common.IsNameHashedLabel] != "true" {
+		objToCreate.Labels[common.DisplayNameLabel] = objToCreate.GetName()
+		objToCreate.Labels[common.IsNameHashedLabel] = "true"
 		hashedName := helper.GetHashedName(objToCreate.CRDName(), nil, objToCreate.GetName())
 		objToCreate.Name = hashedName
 	}
@@ -866,7 +866,7 @@ func (c *Clientset) Add{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}(ctx c
 // Delete{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} calculates hashedName of object based on
 // parents and deletes given object
 func (c *Clientset) Delete{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}(ctx context.Context) (err error) {
-	hashedName := helper.GetHashedName("{{$node.CrdName}}", nil, helper.DEFAULT_KEY)
+	hashedName := helper.GetHashedName("{{$node.CrdName}}", nil, helper.DefaultKey)
 	return c.{{$node.SimpleGroupTypeName}}().Delete{{$node.BaseNodeName}}ByName(ctx, hashedName)
 }
 {{ else }}
@@ -894,9 +894,9 @@ func (c *Clientset) Add{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}(ctx c
 	if objToCreate.Labels == nil {
 		objToCreate.Labels = map[string]string{}
 	}
-	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" {
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
-		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+	if objToCreate.Labels[common.IsNameHashedLabel] != "true" {
+		objToCreate.Labels[common.DisplayNameLabel] = objToCreate.GetName()
+		objToCreate.Labels[common.IsNameHashedLabel] = "true"
 		hashedName := helper.GetHashedName(objToCreate.CRDName(), nil, objToCreate.GetName())
 		objToCreate.Name = hashedName
 	}
@@ -922,7 +922,7 @@ type {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}} stru
 
 func (n *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}}) Next(ctx context.Context) (*{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, error) {
        for index, child := range n.{{$link.FieldName}} {
-               log.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}} Next] Get next {{$link.FieldName}} with name %s", child.Name)
+               logger.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}{{$link.FieldName}} Next] Get next {{$link.FieldName}} with name %s", child.Name)
                obj, err := n.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, child.Name)
                if err == nil {
                        if index == len(n.{{$link.FieldName}})-1 {
@@ -958,7 +958,7 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetAll{{$link.Fi
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) GetAll{{$link.FieldName}}(ctx context.Context) (
 		result []*{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
 	for _, v := range GetChildren("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}") {
-		log.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} GetAll{{$link.FieldName}}] Get next {{$link.FieldName}} with name %s", v)
+		logger.Debugf("[{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} GetAll{{$link.FieldName}}] Get next {{$link.FieldName}} with name %s", v)
 		l, err := obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, v)
 		if err != nil {
 			return nil, err
@@ -978,13 +978,13 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Get{{$link.Field
 	}
 	parentLabels["{{$node.CrdName}}"] = obj.DisplayName()
 	childHashName := helper.GetHashedName("{{$link.CrdName}}", parentLabels, displayName)
-	log.Debugf("[Get{{$link.FieldName}}] in {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} with name %s, displayName %s, parentLabels %#v", childHashName, displayName, parentLabels)
+	logger.Debugf("[Get{{$link.FieldName}}] in {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}} with name %s, displayName %s, parentLabels %#v", childHashName, displayName, parentLabels)
 	if IsChildExists("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}", childHashName) == false {
-		log.Debugf("[Get{{$link.FieldName}}] ChildNotFound {{$link.FieldName}} with name %s, displayName %s ", childHashName, displayName)
+		logger.Debugf("[Get{{$link.FieldName}}] ChildNotFound {{$link.FieldName}} with name %s, displayName %s ", childHashName, displayName)
 		return nil, NewChildNotFound(obj.DisplayName(), "{{$node.SimpleGroupTypeName}}.{{$node.BaseNodeName}}", "{{$link.FieldName}}", displayName)
 	}
 
-	log.Debugf("[Get{{$link.FieldName}}] invoke Get{{$link.BaseNodeName}}ByName name %s, displayName %s", childHashName, displayName)
+	logger.Debugf("[Get{{$link.FieldName}}] invoke Get{{$link.BaseNodeName}}ByName name %s, displayName %s", childHashName, displayName)
 	result, err = obj.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, childHashName)
 	return
 }
@@ -1006,7 +1006,7 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Get{{$link.Field
 // nexus/display_name label and can be obtained using DisplayName() method.
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Add{{$link.FieldName}}(ctx context.Context,
 	objToCreate *{{$link.GroupBaseImport}}) (result *{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
-	log.Debugf("[Add{{$link.FieldName}}] Received objToAdd: %s", objToCreate.GetName())
+	logger.Debugf("[Add{{$link.FieldName}}] Received objToAdd: %s", objToCreate.GetName())
 	if objToCreate.Labels == nil {
 		objToCreate.Labels = map[string]string{}
 	}
@@ -1014,25 +1014,25 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Add{{$link.Field
 		objToCreate.Labels[v] = obj.Labels[v]
 	}
 	objToCreate.Labels["{{$node.CrdName}}"] = obj.DisplayName()
-	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" { {{ if $link.IsSingleton}}
+	if objToCreate.Labels[common.IsNameHashedLabel] != "true" { {{ if $link.IsSingleton}}
 	if objToCreate.GetName() == "" {
-			objToCreate.SetName(helper.DEFAULT_KEY)
+			objToCreate.SetName(helper.DefaultKey)
 		}
-		if objToCreate.GetName() != helper.DEFAULT_KEY {
+		if objToCreate.GetName() != helper.DefaultKey {
 			return nil, NewSingletonNameError(objToCreate.GetName())
 		}{{ end }}
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
-		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+		objToCreate.Labels[common.DisplayNameLabel] = objToCreate.GetName()
+		objToCreate.Labels[common.IsNameHashedLabel] = "true"
 		hashedName := helper.GetHashedName(objToCreate.CRDName(), objToCreate.Labels, objToCreate.GetName())
 		objToCreate.Name = hashedName
 	}
 	result, err = obj.client.{{$link.SimpleGroupTypeName}}().Create{{$link.BaseNodeName}}ByName(ctx, objToCreate)
-	log.Debugf("[Add{{$link.FieldName}}] {{$link.BaseNodeName}} created successfully: %s", objToCreate.GetName())
+	logger.Debugf("[Add{{$link.FieldName}}] {{$link.BaseNodeName}} created successfully: %s", objToCreate.GetName())
 	updatedObj, getErr :=  obj.client.{{$node.SimpleGroupTypeName}}().Get{{$node.BaseNodeName}}ByName(ctx, obj.GetName())
 	if getErr == nil {
 		obj.{{$node.BaseNodeName}} = updatedObj.{{$node.BaseNodeName}}
 	}
-	log.Debugf("[Add{{$link.FieldName}}] Executed Successfully: %s", objToCreate.GetName())
+	logger.Debugf("[Add{{$link.FieldName}}] Executed Successfully: %s", objToCreate.GetName())
 	return
 }
 
@@ -1040,7 +1040,7 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Add{{$link.Field
 // and parents names and deletes it.
 {{ if $link.IsNamed }}
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.FieldName}}(ctx context.Context, displayName string) (err error) {
-	log.Debugf("[ Delete{{$link.FieldName}}] Received for {{$link.BaseNodeName}} object: %s to delete", displayName)
+	logger.Debugf("[ Delete{{$link.FieldName}}] Received for {{$link.BaseNodeName}} object: %s to delete", displayName)
 
 	parentLabels := make(map[string]string)
 	for k, v := range obj.Labels {
@@ -1056,7 +1056,7 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.Fi
 	if err != nil {
 		return err
 	}
-	log.Debugf("[ Delete{{$link.FieldName}}] {{$link.BaseNodeName}} object: %s deleted successfully", displayName)
+	logger.Debugf("[ Delete{{$link.FieldName}}] {{$link.BaseNodeName}} object: %s deleted successfully", displayName)
 	updatedObj, err := obj.client.{{$node.SimpleGroupTypeName}}().Get{{$node.BaseNodeName}}ByName(ctx, obj.GetName())
 	if err == nil {
 		obj.{{$node.BaseNodeName}} = updatedObj.{{$node.BaseNodeName}}
@@ -1067,7 +1067,7 @@ func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.Fi
 func (obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) Delete{{$link.FieldName}}(ctx context.Context) (err error) {
 	children := GetChildren("{{$node.CrdName}}", obj.Name, "{{$link.CrdName}}")
 	if len(children) > 1 {
-		log.Panicf("[ Delete{{$link.FieldName}}] Cannot have more than 1 unnamed link for object %s. Current children %d", obj.GetName(), len(children))
+		logger.Panicf("[ Delete{{$link.FieldName}}] Cannot have more than 1 unnamed link for object %s. Current children %d", obj.GetName(), len(children))
 	}
 
 	if len(children) > 0 {
@@ -1224,23 +1224,23 @@ func (c *{{$node.GroupResourceType}}Chainer) IsSubscribed() bool {
 
 {{if .Parent.HasParent}}
 func (c *{{$node.GroupResourceType}}Chainer) addCallback(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) {
-	parentDisplayName := helper.DEFAULT_KEY
+	parentDisplayName := helper.DefaultKey
 	if value, ok := obj.Labels["{{.Parent.CrdName}}"]; ok {
 		parentDisplayName = value
 	}
 	parentHashName := helper.GetHashedName("{{.Parent.CrdName}}", obj.Labels, parentDisplayName)
-	log.Debugf("[addCallback] received for {{$node.CrdName}} name %s displayName %s parent {{.Parent.CrdName}} name %s parentDisplayName %s", obj.Name, obj.DisplayName(), parentHashName, parentDisplayName)
+	logger.Debugf("[addCallback] received for {{$node.CrdName}} name %s displayName %s parent {{.Parent.CrdName}} name %s parentDisplayName %s", obj.Name, obj.DisplayName(), parentHashName, parentDisplayName)
 
 	AddChild("{{.Parent.CrdName}}", parentHashName, "{{$node.CrdName}}", obj.Name)
 }
 
 func (c *{{$node.GroupResourceType}}Chainer) deleteCallback(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}) {
-	parentDisplayName := helper.DEFAULT_KEY
+	parentDisplayName := helper.DefaultKey
 	if value, ok := obj.Labels["{{.Parent.CrdName}}"]; ok {
 		parentDisplayName = value
 	}
 	parentHashName := helper.GetHashedName("{{.Parent.CrdName}}", obj.Labels, parentDisplayName)
-	log.Debugf("[deleteCallback] received for {{$node.CrdName}} name %s displayName %s parent {{.Parent.CrdName}} name %s parentDisplayName %s", obj.Name, obj.DisplayName(), parentHashName, parentDisplayName)
+	logger.Debugf("[deleteCallback] received for {{$node.CrdName}} name %s displayName %s parent {{.Parent.CrdName}} name %s parentDisplayName %s", obj.Name, obj.DisplayName(), parentHashName, parentDisplayName)
 
 	RemoveChild("{{.Parent.CrdName}}", parentHashName, "{{$node.CrdName}}", obj.Name)
 }
@@ -1274,7 +1274,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 			client: c.client,
 				{{$node.BaseNodeName}}: obj.(*{{$node.GroupBaseImport}}),
 			}
-			log.Debugf("[RegisterEventHandler AddFunc] Got Add event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
+			logger.Debugf("[RegisterEventHandler AddFunc] Got Add event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
 
 			{{if .Parent.HasParent}}
 			var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
@@ -1315,7 +1315,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 				client: c.client,
 				{{$node.BaseNodeName}}: newObj.(*{{$node.GroupBaseImport}}),
 			}
-			log.Debugf("[RegisterEventHandler UpdateFunc] Got Update event for {{$node.CrdName}} name %s old version %s new version %s", oldData.{{$node.BaseNodeName}}.Name, oldData.ResourceVersion, newData.ResourceVersion)
+			logger.Debugf("[RegisterEventHandler UpdateFunc] Got Update event for {{$node.CrdName}} name %s old version %s new version %s", oldData.{{$node.BaseNodeName}}.Name, oldData.ResourceVersion, newData.ResourceVersion)
 			updateCB(oldData,newData)
         },
 
@@ -1324,7 +1324,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 			client: c.client,
 				{{$node.BaseNodeName}}: obj.(*{{$node.GroupBaseImport}}),
 			}
-			log.Debugf("[RegisterEventHandler DeleteFunc] Got Delete event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
+			logger.Debugf("[RegisterEventHandler DeleteFunc] Got Delete event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
 
 			{{if .Parent.HasParent}}
 			var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
@@ -1363,7 +1363,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterEventHandler(addCB func(obj
 }
 
 func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}})) (cache.ResourceEventHandlerRegistration, error){
-	log.Debugf("[RegisterAddCallback] Received for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
+	logger.Debugf("[RegisterAddCallback] Received for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
 	var (
 		registrationId cache.ResourceEventHandlerRegistration
 		err error
@@ -1392,7 +1392,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 					client: c.client,
 					{{$node.BaseNodeName}}: obj.(*{{$node.GroupBaseImport}}),
 				}
-				log.Debugf("[RegisterAddCallback] Got Add event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
+				logger.Debugf("[RegisterAddCallback] Got Add event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
 
 				{{if .Parent.HasParent}}
 				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
@@ -1432,7 +1432,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterAddCallback(cbfn func(obj *
 }
 
 func (c *{{$node.GroupResourceType}}Chainer) RegisterUpdateCallback(cbfn func(oldObj,newObj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}})) (cache.ResourceEventHandlerRegistration, error){
-	log.Debugf("[RegisterUpdateCallback] Received for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
+	logger.Debugf("[RegisterUpdateCallback] Received for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
 	var (
 		registrationId cache.ResourceEventHandlerRegistration
 		err error
@@ -1465,7 +1465,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterUpdateCallback(cbfn func(ol
 					client: c.client,
 					{{$node.BaseNodeName}}: newObj.(*{{$node.GroupBaseImport}}),
 				}
-				log.Debugf("[RegisterUpdateCallback] Got Update event for {{$node.CrdName}} name %s old version %s new version %s", oldData.{{$node.BaseNodeName}}.Name, oldData.ResourceVersion, newData.ResourceVersion)
+				logger.Debugf("[RegisterUpdateCallback] Got Update event for {{$node.CrdName}} name %s old version %s new version %s", oldData.{{$node.BaseNodeName}}.Name, oldData.ResourceVersion, newData.ResourceVersion)
 				cbfn(oldData,newData)
             },
         })
@@ -1474,7 +1474,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterUpdateCallback(cbfn func(ol
 }
 
 func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(obj *{{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}})) (cache.ResourceEventHandlerRegistration, error){
-	log.Debugf("[RegisterDeleteCallback] Received for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
+	logger.Debugf("[RegisterDeleteCallback] Received for {{$node.SimpleGroupTypeName}}{{$node.BaseNodeName}}")
 	var (
 		registrationId cache.ResourceEventHandlerRegistration
 		err error
@@ -1503,7 +1503,7 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 				client: c.client,
 					{{$node.BaseNodeName}}: obj.(*{{$node.GroupBaseImport}}),
 				}
-				log.Debugf("[RegisterDeleteCallback] Got Delete event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
+				logger.Debugf("[RegisterDeleteCallback] Got Delete event for {{$node.CrdName}} name %s", nc.{{$node.BaseNodeName}}.Name)
 
 				{{if .Parent.HasParent}}
 				var parent *{{.Parent.SimpleGroupTypeName}}{{.Parent.BaseNodeName}}
@@ -1548,10 +1548,10 @@ func (c *{{$node.GroupResourceType}}Chainer) RegisterDeleteCallback(cbfn func(ob
 // Clear{{$node.StatusName}} to clear user defined status
 func (c *{{$node.GroupResourceType}}Chainer) Clear{{$node.StatusName}}(ctx context.Context) (err error) {
 	hashedName := helper.GetHashedName("{{$node.CrdName}}", c.parentLabels, c.name)
-	log.Debugf("[{{$node.GroupResourceType}}Chainer Clear{{$node.StatusName}}] Clear status for object with name %s", hashedName)
+	logger.Debugf("[{{$node.GroupResourceType}}Chainer Clear{{$node.StatusName}}] Clear status for object with name %s", hashedName)
 	obj, err := c.client.{{$node.SimpleGroupTypeName}}().Get{{$node.BaseNodeName}}ByName(ctx, hashedName)
 	if err != nil {
-		log.Errorf("[{{$node.GroupResourceType}}Chainer Clear{{$node.StatusName}}] Clear status for object with name %s failed with error %v", hashedName, err)
+		logger.Errorf("[{{$node.GroupResourceType}}Chainer Clear{{$node.StatusName}}] Clear status for object with name %s failed with error %v", hashedName, err)
 		return err
 	}
 	_, err = c.client.{{$node.SimpleGroupTypeName}}().Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName(ctx, obj.{{$node.BaseNodeName}}, nil)
@@ -1571,10 +1571,10 @@ func (c *{{$node.GroupResourceType}}Chainer) Get{{$node.StatusName}}(ctx context
 // Set{{$node.StatusName}} sets user defined status
 func (c *{{$node.GroupResourceType}}Chainer) Set{{$node.StatusName}}(ctx context.Context, status *{{$node.BaseImportName}}.{{$node.StatusType}}) (err error) {
 	hashedName := helper.GetHashedName("{{$node.CrdName}}", c.parentLabels, c.name)
-	log.Debugf("[{{$node.GroupResourceType}}Chainer Set{{$node.StatusName}}] Set status for object with name %s", hashedName)
+	logger.Debugf("[{{$node.GroupResourceType}}Chainer Set{{$node.StatusName}}] Set status for object with name %s", hashedName)
 	obj, err := c.client.{{$node.SimpleGroupTypeName}}().Get{{$node.BaseNodeName}}ByName(ctx, hashedName)
 	if err != nil {
-		log.Errorf("[{{$node.GroupResourceType}}Chainer Set{{$node.StatusName}}] Set status for object with name %s failed with error %v", hashedName, err)
+		logger.Errorf("[{{$node.GroupResourceType}}Chainer Set{{$node.StatusName}}] Set status for object with name %s failed with error %v", hashedName, err)
 		return err
 	}
 	_, err = c.client.{{$node.SimpleGroupTypeName}}().Set{{$node.BaseNodeName}}{{$node.StatusName}}ByName(ctx, obj.{{$node.BaseNodeName}}, status)
@@ -1586,17 +1586,17 @@ func (c *{{$node.GroupResourceType}}Chainer) Set{{$node.StatusName}}(ctx context
 {{ if $link.IsSingleton }}
 func (c *{{$node.GroupResourceType}}Chainer) {{$link.FieldName}}() *{{$link.GroupResourceType}}Chainer {
 	parentLabels := c.parentLabels
-	parentLabels["{{$link.CrdName}}"] = helper.DEFAULT_KEY
+	parentLabels["{{$link.CrdName}}"] = helper.DefaultKey
 	return &{{$link.GroupResourceType}}Chainer{
 		client: c.client,
-		name: helper.DEFAULT_KEY,
+		name: helper.DefaultKey,
 		parentLabels: parentLabels,
 	}
 }
 
 // Get{{$link.FieldName}} calculates hashed name of the object based on it's parents and returns the object
 func (c *{{$node.GroupResourceType}}Chainer) Get{{$link.FieldName}}(ctx context.Context) (result *{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
-	hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, helper.DEFAULT_KEY)
+	hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, helper.DefaultKey)
 	return c.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, hashedName)
 }
 
@@ -1606,9 +1606,9 @@ func (c *{{$node.GroupResourceType}}Chainer) Get{{$link.FieldName}}(ctx context.
 func (c *{{$node.GroupResourceType}}Chainer) Add{{$link.FieldName}}(ctx context.Context,
 		objToCreate *{{$link.GroupBaseImport}}) (result *{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
 	if objToCreate.GetName() == "" {
-		objToCreate.SetName(helper.DEFAULT_KEY)
+		objToCreate.SetName(helper.DefaultKey)
 	}
-	if objToCreate.GetName() != helper.DEFAULT_KEY {
+	if objToCreate.GetName() != helper.DefaultKey {
 		return nil, NewSingletonNameError(objToCreate.GetName())
 	}
 	if objToCreate.Labels == nil {
@@ -1617,9 +1617,9 @@ func (c *{{$node.GroupResourceType}}Chainer) Add{{$link.FieldName}}(ctx context.
 	for k, v := range c.parentLabels {
 		objToCreate.Labels[k] = v
 	}
-	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" {
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
-		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+	if objToCreate.Labels[common.IsNameHashedLabel] != "true" {
+		objToCreate.Labels[common.DisplayNameLabel] = objToCreate.GetName()
+		objToCreate.Labels[common.IsNameHashedLabel] = "true"
 		hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, objToCreate.GetName())
 		objToCreate.Name = hashedName
 	}
@@ -1632,7 +1632,7 @@ func (c *{{$node.GroupResourceType}}Chainer) Delete{{$link.FieldName}}(ctx conte
 	if c.parentLabels == nil {
 		c.parentLabels = map[string]string{}
 	}
-	c.parentLabels[common.IS_NAME_HASHED_LABEL] = "true"
+	c.parentLabels[common.IsNameHashedLabel] = "true"
 	hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, name)
 	return c.client.{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, hashedName)
 }
@@ -1650,7 +1650,7 @@ func (c *{{$node.GroupResourceType}}Chainer) {{$link.FieldName}}(name string) *{
 // Get{{$link.FieldName}} calculates hashed name of the object based on displayName and it's parents and returns the object
 func (c *{{$node.GroupResourceType}}Chainer) Get{{$link.FieldName}}(ctx context.Context, displayName string) (result *{{$link.SimpleGroupTypeName}}{{$link.BaseNodeName}}, err error) {
 	hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, displayName)
-	log.Debugf("[Get{{$link.FieldName}}] using chainer for name %s, displayName %s, labels %#v", hashedName, displayName, c.parentLabels)
+	logger.Debugf("[Get{{$link.FieldName}}] using chainer for name %s, displayName %s, labels %#v", hashedName, displayName, c.parentLabels)
 	return c.client.{{$link.SimpleGroupTypeName}}().Get{{$link.BaseNodeName}}ByName(ctx, hashedName)
 }
 
@@ -1665,9 +1665,9 @@ func (c *{{$node.GroupResourceType}}Chainer) Add{{$link.FieldName}}(ctx context.
 	for k, v := range c.parentLabels {
 		objToCreate.Labels[k] = v
 	}
-	if objToCreate.Labels[common.IS_NAME_HASHED_LABEL] != "true" {
-		objToCreate.Labels[common.DISPLAY_NAME_LABEL] = objToCreate.GetName()
-		objToCreate.Labels[common.IS_NAME_HASHED_LABEL] = "true"
+	if objToCreate.Labels[common.IsNameHashedLabel] != "true" {
+		objToCreate.Labels[common.DisplayNameLabel] = objToCreate.GetName()
+		objToCreate.Labels[common.IsNameHashedLabel] = "true"
 		hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, objToCreate.GetName())
 		objToCreate.Name = hashedName
 	}
@@ -1680,7 +1680,7 @@ func (c *{{$node.GroupResourceType}}Chainer) Delete{{$link.FieldName}}(ctx conte
 	if c.parentLabels == nil {
 		c.parentLabels = map[string]string{}
 	}
-	c.parentLabels[common.IS_NAME_HASHED_LABEL] = "true"
+	c.parentLabels[common.IsNameHashedLabel] = "true"
 	hashedName := helper.GetHashedName("{{$link.CrdName}}", c.parentLabels, name)
 	return c.client.{{$link.SimpleGroupTypeName}}().Delete{{$link.BaseNodeName}}ByName(ctx, hashedName)
 }

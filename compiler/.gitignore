@@ -9,6 +9,7 @@ compiler.tar
 _generated
 _tsm_temp
 example/output/generated/nexus-gql/server
+/example/datamodel/build/nexus-gql/server
 pkg/openapi_generator/openapi/openapi_generated.go.bak
 
 ### GoLand ###

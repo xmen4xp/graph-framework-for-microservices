@@ -1,3 +1,4 @@
+//nolint:stylecheck,revive // Inherited from opensource.
 package nexus_client
 
 import (
@@ -88,72 +89,72 @@ func IsUnexpectedObjectError(err error) bool {
 	return k8serrors.IsUnexpectedObjectError(err)
 }
 
-type ParentNotFound struct {
+type ParentNotFoundError struct {
 	errMessage string
 }
 
-func NewParentNotFound(displayName string, objectType metav1.Type) ParentNotFound {
-	return ParentNotFound{
+func NewParentNotFound(displayName string, objectType metav1.Type) ParentNotFoundError {
+	return ParentNotFoundError{
 		errMessage: fmt.Sprintf("parent not found for %s: %s", objectType, displayName),
 	}
 }
 
-func (p ParentNotFound) Error() string {
+func (p ParentNotFoundError) Error() string {
 	return p.errMessage
 }
 
 func IsParentNotFound(err error) bool {
-	return errors.As(err, &ParentNotFound{})
+	return errors.As(err, &ParentNotFoundError{})
 }
 
-type ChildNotFound struct {
+type ChildNotFoundError struct {
 	errMessage string
 }
 
 func NewChildNotFound(parentDisplayName string, parentType string,
-	childVarName string, childDisplayName ...string) ChildNotFound {
+	childVarName string, childDisplayName ...string) ChildNotFoundError {
 	if len(childDisplayName) == 0 {
-		return ChildNotFound{
+		return ChildNotFoundError{
 			errMessage: fmt.Sprintf("child %s not found for %s: %s", childVarName, parentType, parentDisplayName),
 		}
 	}
-	return ChildNotFound{
+	return ChildNotFoundError{
 		errMessage: fmt.Sprintf("child %s: %s not found for %s: %s",
 			childVarName, childDisplayName[0], parentType, parentDisplayName),
 	}
 }
 
-func (p ChildNotFound) Error() string {
+func (p ChildNotFoundError) Error() string {
 	return p.errMessage
 }
 
 func IsChildNotFound(err error) bool {
-	return errors.As(err, &ChildNotFound{})
+	return errors.As(err, &ChildNotFoundError{})
 }
 
-type LinkNotFound struct {
+type LinkNotFoundError struct {
 	errMessage string
 }
 
 func NewLinkNotFound(parentDisplayName string, parentType string,
-	linkVarName string, linkDisplayName ...string) LinkNotFound {
+	linkVarName string, linkDisplayName ...string) LinkNotFoundError {
 	if len(linkDisplayName) == 0 {
-		return LinkNotFound{
+		return LinkNotFoundError{
 			errMessage: fmt.Sprintf("link %s not found for %s: %s", linkVarName, parentType, parentDisplayName),
 		}
 	}
-	return LinkNotFound{
+	return LinkNotFoundError{
 		errMessage: fmt.Sprintf("link %s: %s not found for %s: %s",
 			linkVarName, linkDisplayName[0], parentType, parentDisplayName),
 	}
 }
 
-func (p LinkNotFound) Error() string {
+func (p LinkNotFoundError) Error() string {
 	return p.errMessage
 }
 
 func IsLinkNotFound(err error) bool {
-	return errors.As(err, &LinkNotFound{})
+	return errors.As(err, &LinkNotFoundError{})
 }
 
 type SingletonNameError struct {
