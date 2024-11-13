@@ -125,7 +125,7 @@ func addStatusUri(uriPath string, typeOfUri model.URIType, urisMap map[string]mo
 		Uri: uriPath,
 		Methods: map[nexus.HTTPMethod]nexus.HTTPCodesResponse{
 			http.MethodGet: nexus.DefaultHTTPGETResponses,
-			http.MethodPut: nexus.DefaultHTTPPUTResponses,
+			// http.MethodPut: nexus.DefaultHTTPPUTResponses,
 		},
 	}
 	urisMap[uriPath] = model.RestUriInfo{
